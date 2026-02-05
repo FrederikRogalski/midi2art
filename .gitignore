@@ -1,0 +1,27 @@
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# JUCE builds and artifacts
+/Builds/
+**/build/
+*.a
+*.dylib
+*.o
+*.obj
+*.so
+*.app
+*.component
+*.vst3
+
+# Xcode
+*.xcuserstate
+**/xcuserdata/
+**/DerivedData/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
