@@ -263,6 +263,7 @@ void Midi2ArtAudioProcessor::updateParameters()
     int newProtocol = static_cast<int>(*parameters.getRawParameterValue(PARAM_PROTOCOL));
     if (newProtocol != currentProtocol)
     {
+        DBG("PluginProcessor::updateParameters - Protocol changed from " + juce::String(currentProtocol) + " to " + juce::String(newProtocol));
         currentProtocol = newProtocol;
         createProtocolSender(currentProtocol);
     }
@@ -293,9 +294,11 @@ void Midi2ArtAudioProcessor::updateParameters()
     juce::String newSerialPort = parameters.state.getProperty(PARAM_SERIAL_PORT, "").toString();
     if (newSerialPort != currentSerialPort)
     {
+        DBG("PluginProcessor::updateParameters - Serial port changed from '" + currentSerialPort + "' to '" + newSerialPort + "'");
         currentSerialPort = newSerialPort;
         if (dmxSender && currentProtocol == 2) // Adalight
         {
+            DBG("  Calling setTargetIP with new serial port: '" + currentSerialPort + "'");
             dmxSender->setTargetIP(currentSerialPort); // setTargetIP is used for serial port name in Adalight
         }
     }
@@ -635,29 +638,38 @@ void Midi2ArtAudioProcessor::sendVisualFeedbackWithRange(int rangeLEDCount)
 //==============================================================================
 void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
 {
+    DBG("============================================");
+    DBG("PluginProcessor::createProtocolSender - PROTOCOL SWITCH to: " + juce::String(protocol));
+    DBG("  Active notes: " + juce::String(activeNotes.size()));
+    
     // Destroy existing sender
     dmxSender.reset();
+    DBG("  Old sender destroyed");
     
     // Create new sender based on protocol
     if (protocol == 0)
     {
         // Art-Net
         dmxSender = std::make_unique<ArtNetSender>();
+        DBG("  Created ArtNetSender");
     }
     else if (protocol == 1)
     {
         // E1.31 (sACN)
         dmxSender = std::make_unique<E131Sender>();
+        DBG("  Created E131Sender");
     }
     else if (protocol == 2)
     {
         // Adalight (USB Serial)
         dmxSender = std::make_unique<AdalightSender>();
+        DBG("  Created AdalightSender");
     }
     else
     {
         // Default to E1.31 if unknown protocol
         dmxSender = std::make_unique<E131Sender>();
+        DBG("  Created E131Sender (default/unknown)");
     }
     
     // Re-read current values from ValueTree to avoid stale state
@@ -666,21 +678,27 @@ void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
     currentWLEDIP = parameters.state.getProperty(PARAM_WLED_IP, "239.255.0.1").toString();
     currentSerialPort = parameters.state.getProperty(PARAM_SERIAL_PORT, "").toString();
     
+    DBG("  Read from ValueTree - IP: '" + currentWLEDIP + "', Serial: '" + currentSerialPort + "'");
+    
     // Initialize with current settings
     if (dmxSender)
     {
         if (protocol == 2)
         {
             // Adalight - use serial port
+            DBG("  Calling setTargetIP with serial port: '" + currentSerialPort + "'");
             dmxSender->setTargetIP(currentSerialPort);
         }
         else
         {
             // Network protocol - use IP
+            DBG("  Calling setTargetIP with IP: '" + currentWLEDIP + "'");
             dmxSender->setTargetIP(currentWLEDIP);
         }
         dmxSender->setUniverse(currentUniverse);
+        DBG("  Sender initialized");
     }
+    DBG("============================================");
 }
 
 //==============================================================================

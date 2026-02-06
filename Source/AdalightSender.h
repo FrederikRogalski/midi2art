@@ -43,10 +43,16 @@ public:
     // For Adalight, "targetIP" is actually the serial port name/path
     void setTargetIP(const juce::String& serialPortName) override
     {
+        DBG("AdalightSender::setTargetIP - requested: '" + serialPortName + "', current: '" + currentSerialPort + "'");
         if (currentSerialPort != serialPortName)
         {
+            DBG("AdalightSender::setTargetIP - port changed, opening new port");
             currentSerialPort = serialPortName;
             openSerialPort();
+        }
+        else
+        {
+            DBG("AdalightSender::setTargetIP - port unchanged, skipping open");
         }
     }
     
@@ -58,7 +64,13 @@ public:
     
     void sendDMX(const uint8_t* dmxData, int numChannels) override
     {
-        if (!isConnected() || numChannels == 0)
+        if (!isConnected())
+        {
+            DBG("AdalightSender::sendDMX - NOT CONNECTED, skipping send");
+            return;
+        }
+        
+        if (numChannels == 0)
             return;
         
         // Calculate number of LEDs (3 bytes per LED)
@@ -166,10 +178,14 @@ private:
     
     void openSerialPort()
     {
+        DBG("AdalightSender::openSerialPort - attempting to open: '" + currentSerialPort + "'");
         closeSerialPort();
         
         if (currentSerialPort.isEmpty())
+        {
+            DBG("AdalightSender::openSerialPort - port name is empty, aborting");
             return;
+        }
         
         #if JUCE_WINDOWS
             // Windows implementation
@@ -183,7 +199,10 @@ private:
                                       NULL);
             
             if (serialHandle == INVALID_HANDLE_VALUE)
+            {
+                DBG("AdalightSender::openSerialPort - FAILED to open (Windows CreateFile failed)");
                 return;
+            }
             
             // Configure serial port
             DCB dcbSerialParams = {0};
@@ -220,10 +239,15 @@ private:
             
         #else
             // POSIX implementation (macOS/Linux)
-            serialHandle = open(currentSerialPort.toRawUTF8(), O_RDWR | O_NOCTTY | O_NDELAY);
+            serialHandle = open(currentSerialPort.toRawUTF8(), O_RDWR | O_NOCTTY);
             
             if (serialHandle < 0)
+            {
+                DBG("AdalightSender::openSerialPort - FAILED to open (POSIX open() failed, errno: " + juce::String(errno) + ")");
                 return;
+            }
+            
+            DBG("AdalightSender::openSerialPort - POSIX open() succeeded, fd: " + juce::String(serialHandle));
             
             // Configure serial port
             struct termios options;
@@ -254,6 +278,7 @@ private:
             // Apply settings
             if (tcsetattr(serialHandle, TCSANOW, &options) != 0)
             {
+                DBG("AdalightSender::openSerialPort - FAILED tcsetattr, errno: " + juce::String(errno));
                 close(serialHandle);
                 serialHandle = -1;
                 return;
@@ -261,6 +286,8 @@ private:
             
             // Flush any existing data
             tcflush(serialHandle, TCIOFLUSH);
+            
+            DBG("AdalightSender::openSerialPort - SUCCESS! Port configured and ready");
         #endif
     }
     
@@ -268,13 +295,19 @@ private:
     {
         if (isConnected())
         {
+            DBG("AdalightSender::closeSerialPort - closing port: '" + currentSerialPort + "'");
             #if JUCE_WINDOWS
                 CloseHandle(serialHandle);
                 serialHandle = INVALID_HANDLE_VALUE;
             #else
+                // Drain any pending output and flush buffers before closing
+                // This helps USB-serial drivers (CP2102, CH340) release the port cleanly
+                tcdrain(serialHandle);
+                tcflush(serialHandle, TCIOFLUSH);
                 close(serialHandle);
                 serialHandle = -1;
             #endif
+            DBG("AdalightSender::closeSerialPort - port closed");
         }
     }
     
@@ -285,9 +318,24 @@ private:
         
         #if JUCE_WINDOWS
             DWORD bytesWritten;
-            WriteFile(serialHandle, data, static_cast<DWORD>(length), &bytesWritten, NULL);
+            if (!WriteFile(serialHandle, data, static_cast<DWORD>(length), &bytesWritten, NULL))
+            {
+                DBG("AdalightSender::writeSerial - WRITE FAILED (Windows), closing port");
+                // Write failed - close the port so reconnect polling can reopen it
+                closeSerialPort();
+            }
         #else
-            write(serialHandle, data, length);
+            ssize_t result = write(serialHandle, data, length);
+            if (result < 0)
+            {
+                DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
+                // Write failed (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
+                closeSerialPort();
+            }
+            else if (result != static_cast<ssize_t>(length))
+            {
+                DBG("AdalightSender::writeSerial - PARTIAL WRITE: " + juce::String(result) + " of " + juce::String((int)length) + " bytes");
+            }
         #endif
     }
 };
