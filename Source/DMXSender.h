@@ -225,10 +225,11 @@ public:
         int totalLEDs = juce::jmax(maxLEDs, patternEnd + 1);
         
         const int numChannels = totalLEDs * 3; // RGB per LED
-        juce::HeapBlock<uint8_t> dmxData(numChannels);
+        if (numChannels > MAX_FEEDBACK_BUFFER_SIZE)
+            return;
         
-        // Initialize all to zero (this clears LEDs outside the pattern)
-        juce::zeromem(dmxData, numChannels);
+        // Use pre-allocated buffer (no heap allocation on audio thread)
+        memset(feedbackBuffer, 0, numChannels);
         
         if (numLEDs == 1)
         {
@@ -236,9 +237,9 @@ public:
             int channelIndex = patternStart * 3;
             if (channelIndex + 2 < numChannels)
             {
-                dmxData[channelIndex] = 255;     // R
-                dmxData[channelIndex + 1] = 0;   // G
-                dmxData[channelIndex + 2] = 0;   // B
+                feedbackBuffer[channelIndex] = 255;     // R
+                feedbackBuffer[channelIndex + 1] = 0;   // G
+                feedbackBuffer[channelIndex + 2] = 0;   // B
             }
         }
         else if (numLEDs == 2)
@@ -250,9 +251,9 @@ public:
                 int channelIndex = ledPos * 3;
                 if (channelIndex + 2 < numChannels)
                 {
-                    dmxData[channelIndex] = 255;     // R
-                    dmxData[channelIndex + 1] = 0;   // G
-                    dmxData[channelIndex + 2] = 0;   // B
+                    feedbackBuffer[channelIndex] = 255;     // R
+                    feedbackBuffer[channelIndex + 1] = 0;   // G
+                    feedbackBuffer[channelIndex + 2] = 0;   // B
                 }
             }
         }
@@ -263,18 +264,18 @@ public:
             int firstChannelIndex = patternStart * 3;
             if (firstChannelIndex + 2 < numChannels)
             {
-                dmxData[firstChannelIndex] = 255;     // R
-                dmxData[firstChannelIndex + 1] = 0;   // G
-                dmxData[firstChannelIndex + 2] = 0;   // B
+                feedbackBuffer[firstChannelIndex] = 255;     // R
+                feedbackBuffer[firstChannelIndex + 1] = 0;   // G
+                feedbackBuffer[firstChannelIndex + 2] = 0;   // B
             }
             
             // Last LED (at offset + numLEDs - 1) - bright red
             int lastChannelIndex = patternEnd * 3;
             if (lastChannelIndex + 2 < numChannels)
             {
-                dmxData[lastChannelIndex] = 255;     // R
-                dmxData[lastChannelIndex + 1] = 0;   // G
-                dmxData[lastChannelIndex + 2] = 0;   // B
+                feedbackBuffer[lastChannelIndex] = 255;     // R
+                feedbackBuffer[lastChannelIndex + 1] = 0;   // G
+                feedbackBuffer[lastChannelIndex + 2] = 0;   // B
             }
             
             // Inner LEDs - dim (about 10% brightness)
@@ -285,14 +286,14 @@ public:
                 int channelIndex = ledPos * 3;
                 if (channelIndex + 2 < numChannels)
                 {
-                    dmxData[channelIndex] = dimValue;     // R
-                    dmxData[channelIndex + 1] = dimValue; // G
-                    dmxData[channelIndex + 2] = dimValue; // B
+                    feedbackBuffer[channelIndex] = dimValue;     // R
+                    feedbackBuffer[channelIndex + 1] = dimValue; // G
+                    feedbackBuffer[channelIndex + 2] = dimValue; // B
                 }
             }
         }
         
-        sendDMX(dmxData, numChannels);
+        sendDMX(feedbackBuffer, numChannels);
     }
     
     // Send all LEDs off
@@ -303,12 +304,16 @@ public:
             return;
         
         const int numChannels = numLEDs * 3; // RGB per LED
-        juce::HeapBlock<uint8_t> dmxData(numChannels);
+        if (numChannels > MAX_FEEDBACK_BUFFER_SIZE)
+            return;
         
-        // Initialize all to zero
-        juce::zeromem(dmxData, numChannels);
-        
-        sendDMX(dmxData, numChannels);
+        memset(feedbackBuffer, 0, numChannels);
+        sendDMX(feedbackBuffer, numChannels);
     }
+    
+private:
+    // Pre-allocated buffer for visual feedback patterns (avoids heap allocation on audio thread)
+    static constexpr int MAX_FEEDBACK_BUFFER_SIZE = 512 * 3;
+    uint8_t feedbackBuffer[MAX_FEEDBACK_BUFFER_SIZE] = {0};
 };
 

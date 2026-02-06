@@ -18,6 +18,14 @@
             file="Source/PluginEditor.h"/>
       <FILE id="ArtNetSenderHeader" name="ArtNetSender.h" compile="0" resource="0"
             file="Source/ArtNetSender.h"/>
+      <FILE id="AdalightSenderHeader" name="AdalightSender.h" compile="0" resource="0"
+            file="Source/AdalightSender.h"/>
+      <FILE id="DMXSenderHeader" name="DMXSender.h" compile="0" resource="0"
+            file="Source/DMXSender.h"/>
+      <FILE id="E131SenderHeader" name="E131Sender.h" compile="0" resource="0"
+            file="Source/E131Sender.h"/>
+      <FILE id="Midi2ArtLookAndFeelHeader" name="Midi2ArtLookAndFeel.h" compile="0" resource="0"
+            file="Source/Midi2ArtLookAndFeel.h"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>

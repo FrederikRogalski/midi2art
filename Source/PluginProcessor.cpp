@@ -42,17 +42,29 @@ Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
                    std::make_unique<juce::AudioParameterFloat>(PARAM_COLOR_VAL, "Color Value",
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
-                   std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 1, 1),  // 0 = Art-Net, 1 = E1.31
+                   std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 2, 1),  // 0 = Art-Net, 1 = E1.31, 2 = Adalight
                    std::make_unique<juce::AudioParameterInt>(PARAM_UNIVERSE, "Universe", 0, 63999, 1)  // WLED default start universe is 1
                })
 {
     previousLEDCount = *parameters.getRawParameterValue(PARAM_LED_COUNT);
     
-    // Initialize IP address in ValueTree (E1.31 Multicast Universe 1)
-    parameters.state.setProperty(PARAM_WLED_IP, "239.255.0.1", nullptr);
+    // Initialize ValueTree properties only if not already set (preserves saved state)
+    if (!parameters.state.hasProperty(PARAM_WLED_IP))
+        parameters.state.setProperty(PARAM_WLED_IP, "239.255.0.1", nullptr);
     
-    // Initialize protocol sender (default: E1.31)
-    createProtocolSender(1);
+    if (!parameters.state.hasProperty(PARAM_SERIAL_PORT))
+        parameters.state.setProperty(PARAM_SERIAL_PORT, "", nullptr);
+    
+    // Read saved state into member variables BEFORE creating the sender
+    currentProtocol = static_cast<int>(*parameters.getRawParameterValue(PARAM_PROTOCOL));
+    currentWLEDIP = parameters.state.getProperty(PARAM_WLED_IP, "239.255.0.1").toString();
+    currentSerialPort = parameters.state.getProperty(PARAM_SERIAL_PORT, "").toString();
+    currentUniverse = static_cast<int>(*parameters.getRawParameterValue(PARAM_UNIVERSE));
+    currentLEDCount = static_cast<int>(*parameters.getRawParameterValue(PARAM_LED_COUNT));
+    currentLEDOffset = static_cast<int>(*parameters.getRawParameterValue(PARAM_LED_OFFSET));
+    
+    // Initialize protocol sender with the saved (or default) protocol
+    createProtocolSender(currentProtocol);
 }
 
 Midi2ArtAudioProcessor::~Midi2ArtAudioProcessor()
@@ -158,7 +170,10 @@ void Midi2ArtAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     updateParameters();
     
     // Process MIDI messages
-    processMidiMessages(midiMessages);
+    if (midiMessages.getNumEvents() > 0)
+    {
+        processMidiMessages(midiMessages);
+    }
     
     // Update ADSR envelopes for active notes
     // We update envelopes at audio rate for smooth transitions
@@ -178,7 +193,17 @@ void Midi2ArtAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         }
     }
     
-    // Send Art-Net periodically when there are active notes (to reflect ADSR changes)
+    // Remove notes whose envelopes have finished (reached Idle state)
+    // This must happen here in processBlock, not just in processMidiMessages,
+    // because envelopes can finish their release phase between MIDI events
+    int numBefore = activeNotes.size();
+    activeNotes.removeIf([](const ActiveNote& note) { return !note.envelope.isActive(); });
+    if (activeNotes.size() != numBefore)
+    {
+        sendChangeMessage();
+    }
+    
+    // Send to LEDs periodically when there are active notes (to reflect ADSR changes)
     // This allows ADSR envelope changes to be visible in real-time
     // Only send when notes are active to avoid interference with multiple plugin instances
     if (activeNotes.size() > 0)
@@ -233,6 +258,48 @@ void Midi2ArtAudioProcessor::setStateInformation (const void* data, int sizeInBy
 //==============================================================================
 void Midi2ArtAudioProcessor::updateParameters()
 {
+    // Update protocol FIRST - ensures the correct sender is active
+    // before any visual feedback or data is sent
+    int newProtocol = static_cast<int>(*parameters.getRawParameterValue(PARAM_PROTOCOL));
+    if (newProtocol != currentProtocol)
+    {
+        currentProtocol = newProtocol;
+        createProtocolSender(currentProtocol);
+    }
+    
+    // Update universe
+    int newUniverse = static_cast<int>(*parameters.getRawParameterValue(PARAM_UNIVERSE));
+    if (newUniverse != currentUniverse)
+    {
+        currentUniverse = newUniverse;
+        if (dmxSender)
+        {
+            dmxSender->setUniverse(currentUniverse);
+        }
+    }
+    
+    // Update WLED IP (from ValueTree property) - for network protocols
+    juce::String newIP = parameters.state.getProperty(PARAM_WLED_IP, "239.255.0.1").toString();
+    if (newIP != currentWLEDIP)
+    {
+        currentWLEDIP = newIP;
+        if (dmxSender && currentProtocol != 2) // Not Adalight
+        {
+            dmxSender->setTargetIP(currentWLEDIP);
+        }
+    }
+    
+    // Update Serial Port (from ValueTree property) - for Adalight
+    juce::String newSerialPort = parameters.state.getProperty(PARAM_SERIAL_PORT, "").toString();
+    if (newSerialPort != currentSerialPort)
+    {
+        currentSerialPort = newSerialPort;
+        if (dmxSender && currentProtocol == 2) // Adalight
+        {
+            dmxSender->setTargetIP(currentSerialPort); // setTargetIP is used for serial port name in Adalight
+        }
+    }
+    
     // Update LED offset
     int newLEDOffset = static_cast<int>(*parameters.getRawParameterValue(PARAM_LED_OFFSET));
     if (newLEDOffset != currentLEDOffset)
@@ -271,12 +338,6 @@ void Midi2ArtAudioProcessor::updateParameters()
         int oldLEDCount = currentLEDCount;
         currentLEDCount = newLEDCount;
         
-        // Track maximum LED count ever set
-        if (currentLEDCount > maxLEDCountEver)
-        {
-            maxLEDCountEver = currentLEDCount;
-        }
-        
         // Send visual feedback when LED count changes
         if (previousLEDCount != currentLEDCount)
         {
@@ -288,42 +349,6 @@ void Midi2ArtAudioProcessor::updateParameters()
             // Always use sendVisualFeedbackWithRange to ensure proper cleanup
             sendVisualFeedbackWithRange(rangeLEDCount);
             previousLEDCount = currentLEDCount;
-        }
-    }
-    
-    // Update protocol
-    int newProtocol = static_cast<int>(*parameters.getRawParameterValue(PARAM_PROTOCOL));
-    if (newProtocol != currentProtocol)
-    {
-        currentProtocol = newProtocol;
-        createProtocolSender(currentProtocol);
-        // Update IP and universe on new sender
-        if (dmxSender)
-        {
-            dmxSender->setTargetIP(currentWLEDIP);
-            dmxSender->setUniverse(currentUniverse);
-        }
-    }
-    
-    // Update universe
-    int newUniverse = static_cast<int>(*parameters.getRawParameterValue(PARAM_UNIVERSE));
-    if (newUniverse != currentUniverse)
-    {
-        currentUniverse = newUniverse;
-        if (dmxSender)
-        {
-            dmxSender->setUniverse(currentUniverse);
-        }
-    }
-    
-    // Update WLED IP (from ValueTree property)
-    juce::String newIP = parameters.state.getProperty(PARAM_WLED_IP, "239.255.0.1").toString();
-    if (newIP != currentWLEDIP)
-    {
-        currentWLEDIP = newIP;
-        if (dmxSender)
-        {
-            dmxSender->setTargetIP(currentWLEDIP);
         }
     }
     
@@ -383,7 +408,7 @@ void Midi2ArtAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
             // Check if note is in range
             if (midiNote < currentLowestNote || midiNote > currentHighestNote)
             {
-                continue; // Ignore notes outside the range
+                continue;
             }
             
             float velocity = message.getFloatVelocity();
@@ -494,19 +519,14 @@ void Midi2ArtAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
         }
     }
     
-    // Remove inactive notes and check if we need to update
-    int numBefore = activeNotes.size();
-    activeNotes.removeIf([](const ActiveNote& note) { return !note.envelope.isActive(); });
-    if (activeNotes.size() != numBefore)
-    {
-        notesChanged = true;
-        // Notify UI that active notes count changed
-        sendChangeMessage();
-    }
+    // Note: inactive note removal is handled in processBlock() after envelope updates,
+    // so it catches notes that finish their release between MIDI events.
     
     // Send Art-Net update only when MIDI events occur (event-based, not continuous)
     // This prevents interference when multiple plugin instances are running
-    if (notesChanged)
+    // NOTE: For Adalight, the timer-based sending at 30fps is sufficient.
+    // Event-driven sending was designed for network protocols where bandwidth isn't an issue.
+    if (notesChanged && currentProtocol != 2)
     {
         updateArtNetOutput();
     }
@@ -514,20 +534,18 @@ void Midi2ArtAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
 
 void Midi2ArtAudioProcessor::updateArtNetOutput()
 {
-    if (currentLEDCount == 0 || currentWLEDIP.isEmpty())
-    {
-        return;
-    }
-    
     // Calculate the actual range we need to cover
-    // Pattern extends from offset to offset + count - 1
-    int patternEnd = currentLEDOffset + currentLEDCount - 1;
-    int packetLEDCount = juce::jmax(patternEnd + 1, maxLEDCountEver);
+    // Packet covers LEDs from 0 to (offset + count - 1)
+    int packetLEDCount = currentLEDOffset + currentLEDCount;
     const int numChannels = packetLEDCount * 3; // RGB per LED
-    juce::HeapBlock<uint8_t> dmxData(numChannels);
     
-    // Initialize all channels to zero (this ensures LEDs beyond the pattern are off)
-    juce::zeromem(dmxData, numChannels);
+    // Clamp to pre-allocated buffer size
+    if (numChannels > MAX_DMX_BUFFER_SIZE || numChannels == 0)
+        return;
+    
+    // Use pre-allocated buffer (no heap allocation on audio thread)
+    // Initialize all channels to zero (ensures LEDs beyond the pattern are off)
+    memset(dmxBuffer, 0, numChannels);
     
     // Set LED values based on active notes
     for (const auto& note : activeNotes)
@@ -549,16 +567,16 @@ void Midi2ArtAudioProcessor::updateArtNetOutput()
             int channelIndex = note.ledIndex * 3;
             if (channelIndex + 2 < numChannels)
             {
-                dmxData[channelIndex] = r;
-                dmxData[channelIndex + 1] = g;
-                dmxData[channelIndex + 2] = b;
+                dmxBuffer[channelIndex] = r;
+                dmxBuffer[channelIndex + 1] = g;
+                dmxBuffer[channelIndex + 2] = b;
             }
         }
     }
     
     if (dmxSender)
     {
-        dmxSender->sendDMX(dmxData, numChannels);
+        dmxSender->sendDMX(dmxBuffer, numChannels);
     }
 }
 
@@ -595,10 +613,8 @@ int Midi2ArtAudioProcessor::midiNoteToLEDIndex(int midiNote) const
 void Midi2ArtAudioProcessor::sendVisualFeedback()
 {
     // Send visual feedback pattern: bright edges, dim middle
-    // This makes it easy to see the boundaries even when exceeding actual LED count
-    // Calculate the range we need to cover (pattern + any previous range)
     int patternEnd = currentLEDOffset + currentLEDCount - 1;
-    int maxLEDs = juce::jmax(maxLEDCountEver, patternEnd + 1);
+    int maxLEDs = patternEnd + 1;
     if (dmxSender)
     {
         dmxSender->sendVisualFeedbackPattern(currentLEDCount, currentLEDOffset, maxLEDs);
@@ -633,16 +649,36 @@ void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
         // E1.31 (sACN)
         dmxSender = std::make_unique<E131Sender>();
     }
+    else if (protocol == 2)
+    {
+        // Adalight (USB Serial)
+        dmxSender = std::make_unique<AdalightSender>();
+    }
     else
     {
         // Default to E1.31 if unknown protocol
         dmxSender = std::make_unique<E131Sender>();
     }
     
+    // Re-read current values from ValueTree to avoid stale state
+    // This is critical for protocol switching: the member variables may have been
+    // set during a different protocol's lifecycle
+    currentWLEDIP = parameters.state.getProperty(PARAM_WLED_IP, "239.255.0.1").toString();
+    currentSerialPort = parameters.state.getProperty(PARAM_SERIAL_PORT, "").toString();
+    
     // Initialize with current settings
     if (dmxSender)
     {
-        dmxSender->setTargetIP(currentWLEDIP);
+        if (protocol == 2)
+        {
+            // Adalight - use serial port
+            dmxSender->setTargetIP(currentSerialPort);
+        }
+        else
+        {
+            // Network protocol - use IP
+            dmxSender->setTargetIP(currentWLEDIP);
+        }
         dmxSender->setUniverse(currentUniverse);
     }
 }

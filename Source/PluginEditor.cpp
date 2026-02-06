@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "AdalightSender.h"
 
 //==============================================================================
 Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcessor& p)
@@ -300,43 +301,67 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     protocolLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(protocolLabel);
     
-    protocolComboBox.addItem("Art-Net", 1);      // ID 1 = protocol 0
-    protocolComboBox.addItem("E1.31 (sACN)", 2);  // ID 2 = protocol 1
+    protocolComboBox.addItem("Art-Net", 1);         // ID 1 = protocol 0
+    protocolComboBox.addItem("E1.31 (sACN)", 2);    // ID 2 = protocol 1
+    protocolComboBox.addItem("Adalight (USB)", 3);  // ID 3 = protocol 2
     protocolComboBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
     protocolComboBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
     protocolComboBox.setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
     protocolComboBox.onChange = [this] {
-        // Map ComboBox ID (1,2) to parameter value (0,1)
+        // Map ComboBox ID (1,2,3) to parameter value (0,1,2)
         int selectedId = protocolComboBox.getSelectedId();
-        int protocolValue = (selectedId == 1) ? 0 : 1; // 1->0 (Art-Net), 2->1 (E1.31)
+        int protocolValue = selectedId - 1; // 1->0 (Art-Net), 2->1 (E1.31), 3->2 (Adalight)
         audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_PROTOCOL)
             ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_PROTOCOL)
                 ->convertTo0to1(protocolValue));
+        updateConnectionUI();
     };
-    // Set initial value from parameter (parameter 1 = E1.31 = ComboBox ID 2)
+    // Set initial value from parameter
     int currentProtocol = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_PROTOCOL));
-    protocolComboBox.setSelectedId(currentProtocol == 0 ? 1 : 2);
+    protocolComboBox.setSelectedId(currentProtocol + 1); // 0->1, 1->2, 2->3
     addAndMakeVisible(protocolComboBox);
     
-    // Target IP Address
-    ipAddressLabel.setText("Target IP", juce::dontSendNotification);
-    ipAddressLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(ipAddressLabel);
+    // Target IP Address / Serial Port (context-aware)
+    connectionTargetLabel.setText("Target IP", juce::dontSendNotification);
+    connectionTargetLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    addAndMakeVisible(connectionTargetLabel);
+    
+    // IP Address Editor (for network protocols)
     ipAddressEditor.setMultiLine(false);
     ipAddressEditor.setReturnKeyStartsNewLine(false);
     ipAddressEditor.setText(audioProcessor.getValueTreeState().state.getProperty(Midi2ArtAudioProcessor::PARAM_WLED_IP, "239.255.0.1").toString(), juce::dontSendNotification);
     ipAddressEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
     ipAddressEditor.setColour(juce::TextEditor::textColourId, juce::Colours::white);
-    // Mehr Padding für Text (horizontal)
     ipAddressEditor.setBorder(juce::BorderSize<int>(0, 8, 0, 8));
     ipAddressEditor.onTextChange = [this] {
         audioProcessor.getValueTreeState().state.setProperty(Midi2ArtAudioProcessor::PARAM_WLED_IP, ipAddressEditor.getText(), nullptr);
     };
-    // Enter beendet die Eingabe (Focus entfernen)
     ipAddressEditor.onReturnKey = [this] {
         ipAddressEditor.giveAwayKeyboardFocus();
     };
     addAndMakeVisible(ipAddressEditor);
+    
+    // Serial Port ComboBox (for Adalight)
+    serialPortComboBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    serialPortComboBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    serialPortComboBox.setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
+    serialPortComboBox.onChange = [this] {
+        int selectedId = serialPortComboBox.getSelectedId();
+        if (selectedId > 0)
+        {
+            juce::String portName = serialPortComboBox.getItemText(selectedId - 1);
+            
+            // Ignore the "(disconnected)" placeholder entry
+            if (portName.contains("(disconnected)"))
+                return;
+            
+            // Remember the user's explicit choice for auto-reconnect
+            lastUserSelectedSerialPort = portName;
+            audioProcessor.getValueTreeState().state.setProperty(Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, portName, nullptr);
+            updateStatusLabel();
+        }
+    };
+    addAndMakeVisible(serialPortComboBox);
     
     // Universe
     universeLabel.setText("Universe", juce::dontSendNotification);
@@ -377,7 +402,13 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     
     // Initial updates
     updateKnobValueLabels();
+    
+    // Restore last user-selected serial port from saved state (for auto-reconnect)
+    lastUserSelectedSerialPort = audioProcessor.getValueTreeState().state.getProperty(
+        Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "").toString();
+    
     updateStatusLabel();
+    updateConnectionUI();
     
     // Listen to processor changes (active notes count, MIDI learn state)
     audioProcessor.addChangeListener(this);
@@ -385,10 +416,20 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
 
 Midi2ArtAudioProcessorEditor::~Midi2ArtAudioProcessorEditor()
 {
+    stopTimer();
+    
     // Important: reset LookAndFeel before destruction
     setLookAndFeel (nullptr);
 
     audioProcessor.removeChangeListener(this);
+}
+
+void Midi2ArtAudioProcessorEditor::timerCallback()
+{
+    // Periodically check if the selected serial port is still available
+    // This detects USB device disconnection
+    refreshSerialPorts();
+    updateStatusLabel();
 }
 
 //==============================================================================
@@ -541,24 +582,25 @@ void Midi2ArtAudioProcessorEditor::resized()
     
     // Calculate widths for horizontal distribution
     const int networkLabelWidth = 70;
-    const int protocolComboWidth = 110;  // Noch etwas kleiner
-    const int ipEditorWidth = 120;
+    const int protocolComboWidth = 110;
+    const int connectionFieldWidth = 120;  // For both IP and serial port
     const int universeEditorWidth = 55;
-    const int labelToFieldSpacing = 0;  // Weniger Abstand zwischen Label und Feld
+    const int labelToFieldSpacing = 0;
     
     int x = networkArea.getX();
     
-    // Protocol (Label links + ComboBox)
+    // Protocol (Label + ComboBox)
     protocolLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
     protocolComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, protocolComboWidth, networkFieldHeight);
     x += networkLabelWidth + labelToFieldSpacing + protocolComboWidth + networkSpacing;
     
-    // Target IP (Label links + Editor)
-    ipAddressLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
-    ipAddressEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, ipEditorWidth, networkFieldHeight);
-    x += networkLabelWidth + labelToFieldSpacing + ipEditorWidth + networkSpacing;
+    // Target IP / Serial Port (Label + Editor/ComboBox - context-aware)
+    connectionTargetLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
+    ipAddressEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
+    serialPortComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
+    x += networkLabelWidth + labelToFieldSpacing + connectionFieldWidth + networkSpacing;
     
-    // Universe (Label links + Editor)
+    // Universe (Label + Editor)
     universeLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
     universeEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
     
@@ -671,17 +713,53 @@ void Midi2ArtAudioProcessorEditor::updateStatusLabel()
 {
     int activeNotes = audioProcessor.getActiveNotesCount();
     
-    // Sleaker: Nur aktive Notes anzeigen, oder "Ready" wenn nichts aktiv
+    // Priority 1: Show active notes if playing
     if (activeNotes > 0)
     {
         statusLabel.setText(juce::String(activeNotes) + (activeNotes == 1 ? " note active" : " notes active"), juce::dontSendNotification);
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff1fa0ff)); // Accent-Blau für aktive Notes
+        return;
     }
-    else
+    
+    // Priority 2: Check serial port connection if Adalight is selected
+    int currentProtocol = protocolComboBox.getSelectedId() - 1;
+    if (currentProtocol == 2) // Adalight (USB)
     {
-        statusLabel.setText("Ready", juce::dontSendNotification);
-        statusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey); // Dezentes Grau wenn idle
+        checkSerialPortConnection();
+        return;
     }
+    
+    // Priority 3: Default ready state
+    statusLabel.setText("Ready", juce::dontSendNotification);
+    statusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+}
+
+void Midi2ArtAudioProcessorEditor::checkSerialPortConnection()
+{
+    // Active port = currently connected and selected
+    juce::String activePort = audioProcessor.getValueTreeState().state.getProperty(Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "").toString();
+    
+    if (activePort.isNotEmpty())
+    {
+        // We have an active connection
+        juce::String shortName = activePort.fromLastOccurrenceOf("/", false, false);
+        statusLabel.setText("Connected: " + shortName, juce::dontSendNotification);
+        statusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+        return;
+    }
+    
+    // No active connection - are we waiting for a device to come back?
+    if (lastUserSelectedSerialPort.isNotEmpty())
+    {
+        juce::String shortName = lastUserSelectedSerialPort.fromLastOccurrenceOf("/", false, false);
+        statusLabel.setText("Disconnected: " + shortName + " - reconnecting...", juce::dontSendNotification);
+        statusLabel.setColour(juce::Label::textColourId, juce::Colours::red);
+        return;
+    }
+    
+    // Nothing configured at all
+    statusLabel.setText("No serial port selected", juce::dontSendNotification);
+    statusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
 }
 
 void Midi2ArtAudioProcessorEditor::loadBackgroundImage()
@@ -693,4 +771,109 @@ void Midi2ArtAudioProcessorEditor::loadBackgroundImage()
         BinaryData::Background_pngSize);
 
     hasBackgroundImage = backgroundImage.isValid();
+}
+
+void Midi2ArtAudioProcessorEditor::updateConnectionUI()
+{
+    // Get protocol from ComboBox selection (more reliable than reading parameter)
+    int selectedId = protocolComboBox.getSelectedId();
+    int currentProtocol = selectedId - 1; // ComboBox IDs are 1-based
+    bool isSerial = (currentProtocol == 2); // Adalight
+    
+    // Update label text
+    connectionTargetLabel.setText(isSerial ? "Serial Port" : "Target IP", juce::dontSendNotification);
+    
+    // Show/hide appropriate control
+    ipAddressEditor.setVisible(!isSerial);
+    serialPortComboBox.setVisible(isSerial);
+    
+    // Hide universe for serial (not applicable to Adalight)
+    universeLabel.setVisible(!isSerial);
+    universeEditor.setVisible(!isSerial);
+    
+    if (isSerial)
+    {
+        // Force full refresh when switching to serial - the port list may not
+        // have changed, but the combobox state needs to be re-populated
+        lastKnownSerialPorts.clear();
+        refreshSerialPorts();
+        
+        // Start polling to detect USB disconnect (every 2 seconds)
+        startTimer(2000);
+    }
+    else
+    {
+        // No need to poll when not using serial
+        stopTimer();
+    }
+    
+    // Update status to show connection state
+    updateStatusLabel();
+}
+
+void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
+{
+    // Get available serial ports from AdalightSender
+    juce::StringArray ports = AdalightSender::getAvailableSerialPorts();
+    
+    // Check if list changed - avoid unnecessary UI updates
+    if (ports == lastKnownSerialPorts)
+        return;
+    
+    lastKnownSerialPorts = ports;
+    
+    // The port the user originally chose (survives disconnect/reconnect cycles)
+    juce::String desiredPort = lastUserSelectedSerialPort;
+    
+    // Clear and repopulate
+    serialPortComboBox.clear(juce::dontSendNotification);
+    
+    if (desiredPort.isNotEmpty())
+    {
+        int portIndex = ports.indexOf(desiredPort);
+        
+        if (portIndex >= 0)
+        {
+            // Desired port is available - normal list, select it
+            serialPortComboBox.setEnabled(true);
+            for (int i = 0; i < ports.size(); i++)
+                serialPortComboBox.addItem(ports[i], i + 1);
+            
+            serialPortComboBox.setSelectedId(portIndex + 1, juce::dontSendNotification);
+            audioProcessor.getValueTreeState().state.setProperty(
+                Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, desiredPort, nullptr);
+        }
+        else
+        {
+            // Desired port disconnected - show it as first entry (greyed out hint),
+            // then list available ports below for easy switching
+            juce::String shortName = desiredPort.fromLastOccurrenceOf("/", false, false);
+            serialPortComboBox.addItem(shortName + " (disconnected)", 1);
+            
+            for (int i = 0; i < ports.size(); i++)
+                serialPortComboBox.addItem(ports[i], i + 2);
+            
+            serialPortComboBox.setSelectedId(1, juce::dontSendNotification);
+            serialPortComboBox.setEnabled(true);
+            audioProcessor.getValueTreeState().state.setProperty(
+                Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "", nullptr);
+        }
+    }
+    else if (ports.isEmpty())
+    {
+        serialPortComboBox.addItem("No serial ports found", 1);
+        serialPortComboBox.setSelectedId(1, juce::dontSendNotification);
+        serialPortComboBox.setEnabled(false);
+    }
+    else
+    {
+        // Ports available but nothing selected yet
+        serialPortComboBox.setEnabled(true);
+        for (int i = 0; i < ports.size(); i++)
+            serialPortComboBox.addItem(ports[i], i + 1);
+        serialPortComboBox.setSelectedId(0, juce::dontSendNotification);
+    }
+    
+    // Update status after refresh
+    updateStatusLabel();
 }

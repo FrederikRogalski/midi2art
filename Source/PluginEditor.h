@@ -16,7 +16,8 @@
 /**
 */
 class Midi2ArtAudioProcessorEditor  : public juce::AudioProcessorEditor,
-                                       public juce::ChangeListener
+                                       public juce::ChangeListener,
+                                       public juce::Timer
 {
 public:
     Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcessor&);
@@ -74,7 +75,8 @@ private:
     juce::Label protocolLabel;
     
     juce::TextEditor ipAddressEditor;
-    juce::Label ipAddressLabel;
+    juce::ComboBox serialPortComboBox;
+    juce::Label connectionTargetLabel;  // Dynamic label: "Target IP" or "Serial Port"
     
     juce::TextEditor universeEditor;
     juce::Label universeLabel;
@@ -113,13 +115,22 @@ private:
     // Custom LookAndFeel for knobs/buttons (kept very small & focused)
     std::unique_ptr<Midi2ArtLookAndFeel> customLookAndFeel;
     
+    juce::StringArray lastKnownSerialPorts;
+    juce::String lastUserSelectedSerialPort;  // Remembers user's choice for auto-reconnect
+    
     // Change listener callback
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+    
+    // Timer callback for serial port disconnect detection
+    void timerCallback() override;
     
     void updateColorFromSelector();
     void updateKnobValueLabels();
     void updateStatusLabel();
     void loadBackgroundImage();
+    void updateConnectionUI();
+    void refreshSerialPorts();
+    void checkSerialPortConnection();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Midi2ArtAudioProcessorEditor)
 };
