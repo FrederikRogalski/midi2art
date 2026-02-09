@@ -79,7 +79,9 @@ private:
     juce::Label connectionTargetLabel;  // Dynamic label: "Target IP" or "Serial Port"
     
     juce::TextEditor universeEditor;
-    juce::Label universeLabel;
+    juce::ComboBox baudRateComboBox;  // For Adalight protocol
+    juce::Label universeLabel;  // Dynamic label: "Universe" or "Baud Rate"
+    juce::Label ledCountWarningLabel;  // Warning when LED count exceeds safe limit
     
     juce::Label titleLabel;
     juce::Label statusLabel;
@@ -131,6 +133,8 @@ private:
     void updateConnectionUI();
     void refreshSerialPorts();
     void checkSerialPortConnection();
+    void updateLEDCountWarning();
+    int calculateMaxLEDCount(int baudRate, int fps = 30);  // Calculate max safe LED count for given baud rate
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Midi2ArtAudioProcessorEditor)
 };

@@ -43,7 +43,7 @@ Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
                    std::make_unique<juce::AudioParameterFloat>(PARAM_COLOR_VAL, "Color Value",
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
                    std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 2, 1),  // 0 = Art-Net, 1 = E1.31, 2 = Adalight
-                   std::make_unique<juce::AudioParameterInt>(PARAM_UNIVERSE, "Universe", 0, 63999, 1)  // WLED default start universe is 1
+                   std::make_unique<juce::AudioParameterInt>(PARAM_UNIVERSE, "Universe", 0, 921600, 1)  // Network: Universe (0-63999), Adalight: Baud Rate (57600-921600), default 1 for E1.31
                })
 {
     previousLEDCount = *parameters.getRawParameterValue(PARAM_LED_COUNT);
@@ -685,17 +685,20 @@ void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
     {
         if (protocol == 2)
         {
-            // Adalight - use serial port
+            // Adalight - use serial port and baud rate
             DBG("  Calling setTargetIP with serial port: '" + currentSerialPort + "'");
             dmxSender->setTargetIP(currentSerialPort);
+            DBG("  Calling setUniverse (baud rate) with: " + juce::String(currentUniverse));
+            dmxSender->setUniverse(currentUniverse); // For Adalight, this is the baud rate
         }
         else
         {
-            // Network protocol - use IP
+            // Network protocol - use IP and universe
             DBG("  Calling setTargetIP with IP: '" + currentWLEDIP + "'");
             dmxSender->setTargetIP(currentWLEDIP);
+            DBG("  Calling setUniverse with: " + juce::String(currentUniverse));
+            dmxSender->setUniverse(currentUniverse);
         }
-        dmxSender->setUniverse(currentUniverse);
         DBG("  Sender initialized");
     }
     DBG("============================================");

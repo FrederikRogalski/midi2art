@@ -56,10 +56,19 @@ public:
         }
     }
     
-    // Universe not used for Adalight
-    void setUniverse(int universe) override
+    // For Adalight, universe parameter is repurposed for baud rate
+    void setUniverse(int baudRate) override
     {
-        // Not applicable for serial protocol
+        if (baudRate != currentBaudRate && baudRate > 0)
+        {
+            DBG("AdalightSender::setUniverse (baud rate) - changing from " + juce::String(currentBaudRate) + " to " + juce::String(baudRate));
+            currentBaudRate = baudRate;
+            // If port is already open, reopen with new baud rate
+            if (isConnected())
+            {
+                openSerialPort();
+            }
+        }
     }
     
     void sendDMX(const uint8_t* dmxData, int numChannels) override
@@ -171,10 +180,36 @@ private:
     #endif
     
     juce::String currentSerialPort;
+    int currentBaudRate = 115200;  // Default baud rate for WLED Adalight
     
     // Pre-allocated packet buffer: 6-byte header + max 512 LEDs * 3 bytes = 1542 bytes
     static constexpr int MAX_PACKET_SIZE = 6 + 512 * 3;
     uint8_t packetBuffer[MAX_PACKET_SIZE] = {0};
+    
+    #if !JUCE_WINDOWS
+    // Convert integer baud rate to termios speed_t constant
+    speed_t getBaudRateConstant(int baudRate)
+    {
+        switch (baudRate)
+        {
+            case 9600:    return B9600;
+            case 19200:   return B19200;
+            case 38400:   return B38400;
+            case 57600:   return B57600;
+            case 115200:  return B115200;
+            case 230400:  return B230400;
+            #ifdef B460800
+            case 460800:  return B460800;
+            #endif
+            #ifdef B921600
+            case 921600:  return B921600;
+            #endif
+            default:
+                DBG("AdalightSender::getBaudRateConstant - Unsupported baud rate: " + juce::String(baudRate) + ", using 115200");
+                return B115200;
+        }
+    }
+    #endif
     
     void openSerialPort()
     {
@@ -215,10 +250,13 @@ private:
                 return;
             }
             
-            dcbSerialParams.BaudRate = CBR_115200;
+            // Set baud rate (Windows uses direct integer values)
+            dcbSerialParams.BaudRate = currentBaudRate;
             dcbSerialParams.ByteSize = 8;
             dcbSerialParams.StopBits = ONESTOPBIT;
             dcbSerialParams.Parity = NOPARITY;
+            
+            DBG("AdalightSender::openSerialPort - Setting baud rate to: " + juce::String(currentBaudRate));
             
             if (!SetCommState(serialHandle, &dcbSerialParams))
             {
@@ -253,9 +291,12 @@ private:
             struct termios options;
             tcgetattr(serialHandle, &options);
             
-            // Set baud rate
-            cfsetispeed(&options, B115200);
-            cfsetospeed(&options, B115200);
+            // Set baud rate using helper function
+            speed_t baudConstant = getBaudRateConstant(currentBaudRate);
+            cfsetispeed(&options, baudConstant);
+            cfsetospeed(&options, baudConstant);
+            
+            DBG("AdalightSender::openSerialPort - Setting baud rate to: " + juce::String(currentBaudRate));
             
             // 8N1 mode (8 data bits, no parity, 1 stop bit)
             options.c_cflag &= ~PARENB;  // No parity

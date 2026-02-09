@@ -178,6 +178,9 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     addAndMakeVisible(ledCountSlider);
     ledCountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_LED_COUNT, ledCountSlider);
+    ledCountSlider.onValueChange = [this] {
+        updateLEDCountWarning();
+    };
     
     // LED Offset
     ledOffsetLabel.setText("LED Offset", juce::dontSendNotification);
@@ -189,6 +192,9 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     addAndMakeVisible(ledOffsetSlider);
     ledOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_LED_OFFSET, ledOffsetSlider);
+    ledOffsetSlider.onValueChange = [this] {
+        updateLEDCountWarning();
+    };
     
     // Lowest Note
     lowestNoteLabel.setText("Lowest Note", juce::dontSendNotification);
@@ -363,10 +369,12 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     };
     addAndMakeVisible(serialPortComboBox);
     
-    // Universe
+    // Universe/Baud Rate selector
     universeLabel.setText("Universe", juce::dontSendNotification);
     universeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(universeLabel);
+    
+    // Universe editor (for Art-Net/E1.31)
     universeEditor.setMultiLine(false);
     universeEditor.setReturnKeyStartsNewLine(false);
     // Set input filter to only allow numeric input
@@ -393,6 +401,37 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
         universeEditor.giveAwayKeyboardFocus();
     };
     addAndMakeVisible(universeEditor);
+    
+    // Baud Rate ComboBox (for Adalight)
+    baudRateComboBox.addItem("57600", 1);
+    baudRateComboBox.addItem("115200", 2);
+    baudRateComboBox.addItem("230400", 3);
+    baudRateComboBox.addItem("460800", 4);
+    baudRateComboBox.addItem("921600", 5);
+    baudRateComboBox.setSelectedId(2); // Default 115200
+    baudRateComboBox.onChange = [this] {
+        int selectedBaudRate = 115200; // default
+        switch (baudRateComboBox.getSelectedId())
+        {
+            case 1: selectedBaudRate = 57600; break;
+            case 2: selectedBaudRate = 115200; break;
+            case 3: selectedBaudRate = 230400; break;
+            case 4: selectedBaudRate = 460800; break;
+            case 5: selectedBaudRate = 921600; break;
+        }
+        audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+                ->convertTo0to1(selectedBaudRate));
+        updateLEDCountWarning(); // Recalculate warning when baud rate changes
+    };
+    addAndMakeVisible(baudRateComboBox);
+    
+    // LED Count Warning Label
+    ledCountWarningLabel.setText("", juce::dontSendNotification);
+    ledCountWarningLabel.setJustificationType(juce::Justification::centredLeft);
+    ledCountWarningLabel.setColour(juce::Label::textColourId, juce::Colour(255, 165, 0)); // Orange
+    ledCountWarningLabel.setFont(juce::Font(12.0f));
+    addAndMakeVisible(ledCountWarningLabel);
     
     // Status
     statusLabel.setText("Ready", juce::dontSendNotification);
@@ -545,6 +584,10 @@ void Midi2ArtAudioProcessorEditor::resized()
     // Start from top with equal padding
     y = ledArea.getY() + verticalPadding;
     
+    // LED Count Warning (above LED Offset)
+    ledCountWarningLabel.setBounds(ledArea.getX(), y, ledArea.getWidth(), 15);
+    y += 18; // Warning height + small spacing
+    
     // LED Offset (swapped - first)
     ledOffsetLabel.setBounds(ledArea.getX(), y, labelWidth - 10, sliderHeight);
     juce::Rectangle<int> offsetSliderBounds(ledArea.getX() + labelWidth, y, ledArea.getWidth() - labelWidth, sliderHeight);
@@ -600,11 +643,12 @@ void Midi2ArtAudioProcessorEditor::resized()
     serialPortComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
     x += networkLabelWidth + labelToFieldSpacing + connectionFieldWidth + networkSpacing;
     
-    // Universe (Label + Editor)
+    // Universe/Baud Rate (Label + Editor/ComboBox)
     universeLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
     universeEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
+    baudRateComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
     
-    // Status label should be below the network section, not inside it
+    // Status label below network section
     statusLabel.setBounds(margin, networkSectionBounds.getBottom() + 10, getWidth() - 2 * margin, 20);
 }
 
@@ -787,9 +831,41 @@ void Midi2ArtAudioProcessorEditor::updateConnectionUI()
     ipAddressEditor.setVisible(!isSerial);
     serialPortComboBox.setVisible(isSerial);
     
-    // Hide universe for serial (not applicable to Adalight)
-    universeLabel.setVisible(!isSerial);
-    universeEditor.setVisible(!isSerial);
+    // Update universe/baud rate section
+    if (isSerial)
+    {
+        // Adalight: Show baud rate selector
+        universeLabel.setText("Baud Rate", juce::dontSendNotification);
+        universeEditor.setVisible(false);
+        baudRateComboBox.setVisible(true);
+        
+        // Set current baud rate from parameter
+        int currentBaudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_UNIVERSE));
+        // If value looks like a universe number (< 64000), set default baud rate
+        if (currentBaudRate < 64000)
+        {
+            currentBaudRate = 115200;
+            audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+                ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+                    ->convertTo0to1(115200));
+        }
+        // Select appropriate baud rate in combobox
+        if (currentBaudRate == 57600) baudRateComboBox.setSelectedId(1);
+        else if (currentBaudRate == 115200) baudRateComboBox.setSelectedId(2);
+        else if (currentBaudRate == 230400) baudRateComboBox.setSelectedId(3);
+        else if (currentBaudRate == 460800) baudRateComboBox.setSelectedId(4);
+        else if (currentBaudRate == 921600) baudRateComboBox.setSelectedId(5);
+        else baudRateComboBox.setSelectedId(2); // default 115200
+    }
+    else
+    {
+        // Network protocols: Show universe number
+        universeLabel.setText("Universe", juce::dontSendNotification);
+        universeEditor.setVisible(true);
+        baudRateComboBox.setVisible(false);
+    }
+    
+    universeLabel.setVisible(true); // Always show the label, just change the text
     
     if (isSerial)
     {
@@ -809,6 +885,9 @@ void Midi2ArtAudioProcessorEditor::updateConnectionUI()
     
     // Update status to show connection state
     updateStatusLabel();
+    
+    // Update LED count warning
+    updateLEDCountWarning();
 }
 
 void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
@@ -876,4 +955,52 @@ void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
     
     // Update status after refresh
     updateStatusLabel();
+}
+
+int Midi2ArtAudioProcessorEditor::calculateMaxLEDCount(int baudRate, int fps)
+{
+    // Formula: max LEDs = ((baudRate / 10 / fps) - 6 header bytes) / 3 bytes per LED
+    // 8N1 encoding: 10 bits per byte (1 start + 8 data + 1 stop)
+    // Return exact value, rounded down
+    int bytesPerSecond = baudRate / 10;
+    int bytesPerFrame = bytesPerSecond / fps;
+    int maxBytes = bytesPerFrame - 6; // Subtract 6-byte Adalight header
+    int maxLEDs = maxBytes / 3; // Integer division automatically rounds down
+    return juce::jmax(1, maxLEDs); // At least 1 LED
+}
+
+void Midi2ArtAudioProcessorEditor::updateLEDCountWarning()
+{
+    // Get protocol
+    int selectedId = protocolComboBox.getSelectedId();
+    int currentProtocol = selectedId - 1;
+    bool isAdalight = (currentProtocol == 2);
+    
+    if (!isAdalight)
+    {
+        // No warning for network protocols
+        ledCountWarningLabel.setText("", juce::dontSendNotification);
+        return;
+    }
+    
+    // Get current LED count, offset, and baud rate
+    int ledCount = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_COUNT));
+    int ledOffset = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_OFFSET));
+    int baudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_UNIVERSE));
+    
+    // Calculate max safe LED count
+    int totalLEDs = ledOffset + ledCount;
+    int maxSafeLEDs = calculateMaxLEDCount(baudRate, 30);
+    
+    if (totalLEDs > maxSafeLEDs)
+    {
+        juce::String warningText = "WARNING: LED Offset + Count = " + juce::String(totalLEDs) + 
+                                   " exceeds recommended " + juce::String(maxSafeLEDs) + 
+                                   " @ " + juce::String(baudRate) + " baud. May cause lag.";
+        ledCountWarningLabel.setText(warningText, juce::dontSendNotification);
+    }
+    else
+    {
+        ledCountWarningLabel.setText("", juce::dontSendNotification);
+    }
 }
