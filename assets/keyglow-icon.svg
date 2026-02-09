@@ -1,0 +1,57 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="320" height="320" fill="none"/>
+  <g
+     transform="translate(40,40)"
+     id="g75">
+    <path
+       id="rect51"
+       style="fill:#0b0f14;stroke:#4aa3ff;stroke-width:12"
+       d="m 54,0 h 132 c 29.916,0 54,24.084 54,54 v 132 c 0,29.916 -24.084,54 -54,54 H 54 C 24.084,240 0,215.916 0,186 V 54 C 0,24.084 24.084,0 54,0 Z" />
+    <!-- LED bars -->
+    <g
+       filter="url(#barGlow)"
+       id="g61">
+      <path
+         id="rect53"
+         style="fill:url(#bar1)"
+         d="m 60,65 h 4 c 4.432,0 8,3.568 8,8 v 94 c 0,4.432 -3.568,8 -8,8 h -4 c -4.432,0 -8,-3.568 -8,-8 V 73 c 0,-4.432 3.568,-8 8,-8 z" />
+      <path
+         id="rect55"
+         style="fill:url(#bar2)"
+         d="m 100,49 h 4 c 4.432,0 8,3.568 8,8 v 110 c 0,4.432 -3.568,8 -8,8 h -4 c -4.432,0 -8,-3.568 -8,-8 V 57 c 0,-4.432 3.568,-8 8,-8 z" />
+      <path
+         id="rect57"
+         style="fill:url(#bar3)"
+         d="m 140,65 h 4 c 4.432,0 8,3.568 8,8 v 94 c 0,4.432 -3.568,8 -8,8 h -4 c -4.432,0 -8,-3.568 -8,-8 V 73 c 0,-4.432 3.568,-8 8,-8 z" />
+      <path
+         id="rect59"
+         style="fill:url(#bar4)"
+         d="m 180,79 h 4 c 4.432,0 8,3.568 8,8 v 80 c 0,4.432 -3.568,8 -8,8 h -4 c -4.432,0 -8,-3.568 -8,-8 V 87 c 0,-4.432 3.568,-8 8,-8 z" />
+    </g>
+    <!-- Keyboard (3 white + 2 black keys) -->
+    <g
+       transform="translate(36,127)"
+       id="g73">
+      <path
+         id="rect63"
+         style="fill:#e6eaf0"
+         d="m 14,0 h 140 c 7.756,0 14,6.244 14,14 v 36 c 0,7.756 -6.244,14 -14,14 H 14 C 6.244,64 0,57.756 0,50 V 14 C 0,6.244 6.244,0 14,0 Z" />
+      <path
+         id="rect65"
+         style="fill:#c9d1db"
+         d="m 56,0 h 2 v 64 h -2 z" />
+      <path
+         id="rect67"
+         style="fill:#c9d1db"
+         d="m 112,0 h 2 v 64 h -2 z" />
+      <path
+         id="rect69"
+         style="fill:#0b0f14"
+         d="m 46,0 h 16 c 3.324,0 6,2.676 6,6 v 28 c 0,3.324 -2.676,6 -6,6 H 46 c -3.324,0 -6,-2.676 -6,-6 V 6 c 0,-3.324 2.676,-6 6,-6 z" />
+      <path
+         id="rect71"
+         style="fill:#0b0f14"
+         d="m 102,0 h 16 c 3.324,0 6,2.676 6,6 v 28 c 0,3.324 -2.676,6 -6,6 h -16 c -3.324,0 -6,-2.676 -6,-6 V 6 c 0,-3.324 2.676,-6 6,-6 z" />
+    </g>
+  </g>
+</svg>

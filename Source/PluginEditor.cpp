@@ -621,13 +621,14 @@ void Midi2ArtAudioProcessorEditor::resized()
     juce::Rectangle<int> networkArea = networkSectionBounds.reduced(padding);
     int networkCenterY = networkArea.getCentreY();
     const int networkFieldHeight = 25;
-    const int networkSpacing = 15;
+    const int networkSpacing = 12;  // Reduced from 15 to fit wider baud rate combobox
     
     // Calculate widths for horizontal distribution
     const int networkLabelWidth = 70;
     const int protocolComboWidth = 110;
     const int connectionFieldWidth = 120;  // For both IP and serial port
     const int universeEditorWidth = 55;
+    const int baudRateComboWidth = 75;  // Wider for "921600"
     const int labelToFieldSpacing = 0;
     
     int x = networkArea.getX();
@@ -646,7 +647,7 @@ void Midi2ArtAudioProcessorEditor::resized()
     // Universe/Baud Rate (Label + Editor/ComboBox)
     universeLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
     universeEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
-    baudRateComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
+    baudRateComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, baudRateComboWidth, networkFieldHeight);
     
     // Status label below network section
     statusLabel.setBounds(margin, networkSectionBounds.getBottom() + 10, getWidth() - 2 * margin, 20);
