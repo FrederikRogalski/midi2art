@@ -578,8 +578,8 @@ void Midi2ArtAudioProcessorEditor::resized()
     
     // Calculate total content height with warning
     const int warningHeight = 15;
-    const int warningSpacing = 8;  // Reduced spacing after warning
-    const int sliderReducedSpacing = 28;  // Reduced from 35 to make room for warning
+    const int warningSpacing = 0;  // Spacing after warning
+    const int sliderReducedSpacing = 22;  // Spacing between LED sliders
     int totalContentHeight = warningHeight + warningSpacing + 2 * sliderHeight + sliderReducedSpacing + noteKnobSize + labelHeight + 2;
     int availableHeight = ledArea.getHeight();
     int verticalPadding = (availableHeight - totalContentHeight) / 2;
@@ -601,7 +601,7 @@ void Midi2ArtAudioProcessorEditor::resized()
     ledCountLabel.setBounds(ledArea.getX(), y, labelWidth - 10, sliderHeight);
     juce::Rectangle<int> countSliderBounds(ledArea.getX() + labelWidth, y, ledArea.getWidth() - labelWidth, sliderHeight);
     ledCountSlider.setBounds(countSliderBounds);
-    y += sliderReducedSpacing + 10; // Extra spacing before note knobs
+    y += sliderReducedSpacing + 20; // Compensate to keep note knobs in same position
     
     // Note range knobs - spaceBetween: leftmost and rightmost positions
     // Position Lowest Note (leftmost position)
