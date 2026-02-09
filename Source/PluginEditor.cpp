@@ -419,8 +419,8 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
             case 4: selectedBaudRate = 460800; break;
             case 5: selectedBaudRate = 921600; break;
         }
-        audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
-            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+        audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_BAUD_RATE)
+            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_BAUD_RATE)
                 ->convertTo0to1(selectedBaudRate));
         updateLEDCountWarning(); // Recalculate warning when baud rate changes
     };
@@ -621,33 +621,43 @@ void Midi2ArtAudioProcessorEditor::resized()
     juce::Rectangle<int> networkArea = networkSectionBounds.reduced(padding);
     int networkCenterY = networkArea.getCentreY();
     const int networkFieldHeight = 25;
-    const int networkSpacing = 12;  // Reduced from 15 to fit wider baud rate combobox
     
-    // Calculate widths for horizontal distribution
-    const int networkLabelWidth = 70;
-    const int protocolComboWidth = 110;
-    const int connectionFieldWidth = 120;  // For both IP and serial port
-    const int universeEditorWidth = 55;
-    const int baudRateComboWidth = 75;  // Wider for "921600"
-    const int labelToFieldSpacing = 0;
+    // Network row layout - structured for consistent spacing
+    // Total width available in network section
+    const int totalWidth = networkArea.getWidth();
+    
+    // Define consistent field widths
+    const int networkLabelWidth = 70;           // All labels
+    const int protocolComboWidth = 110;  // Protocol dropdown
+    const int connectionFieldWidth = 120; // IP/Serial port field
+    const int universeFieldWidth = 55;    // Universe number (network protocols)
+    const int baudRateFieldWidth = 75;    // Baud rate selector (Adalight)
+    
+    // Calculate spacing: distribute remaining space evenly between the 3 field groups
+    const int labelFieldPairs = 3;  // Protocol, Connection, Universe/BaudRate
+    const int totalFieldsWidth = (networkLabelWidth + protocolComboWidth) + 
+                                 (networkLabelWidth + connectionFieldWidth) + 
+                                 (networkLabelWidth + baudRateFieldWidth);  // Use larger field width for spacing calculation
+    const int remainingSpace = totalWidth - totalFieldsWidth;
+    const int spacing = remainingSpace / (labelFieldPairs - 1);  // Space between field groups
     
     int x = networkArea.getX();
     
     // Protocol (Label + ComboBox)
     protocolLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
-    protocolComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, protocolComboWidth, networkFieldHeight);
-    x += networkLabelWidth + labelToFieldSpacing + protocolComboWidth + networkSpacing;
+    protocolComboBox.setBounds(x + networkLabelWidth, networkCenterY - networkFieldHeight / 2, protocolComboWidth, networkFieldHeight);
+    x += networkLabelWidth + protocolComboWidth + spacing;
     
     // Target IP / Serial Port (Label + Editor/ComboBox - context-aware)
     connectionTargetLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
-    ipAddressEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
-    serialPortComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
-    x += networkLabelWidth + labelToFieldSpacing + connectionFieldWidth + networkSpacing;
+    ipAddressEditor.setBounds(x + networkLabelWidth, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
+    serialPortComboBox.setBounds(x + networkLabelWidth, networkCenterY - networkFieldHeight / 2, connectionFieldWidth, networkFieldHeight);
+    x += networkLabelWidth + connectionFieldWidth + spacing;
     
     // Universe/Baud Rate (Label + Editor/ComboBox)
     universeLabel.setBounds(x, networkCenterY - networkFieldHeight / 2, networkLabelWidth, networkFieldHeight);
-    universeEditor.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, universeEditorWidth, networkFieldHeight);
-    baudRateComboBox.setBounds(x + networkLabelWidth + labelToFieldSpacing, networkCenterY - networkFieldHeight / 2, baudRateComboWidth, networkFieldHeight);
+    universeEditor.setBounds(x + networkLabelWidth, networkCenterY - networkFieldHeight / 2, universeFieldWidth, networkFieldHeight);
+    baudRateComboBox.setBounds(x + networkLabelWidth, networkCenterY - networkFieldHeight / 2, baudRateFieldWidth, networkFieldHeight);
     
     // Status label below network section
     statusLabel.setBounds(margin, networkSectionBounds.getBottom() + 10, getWidth() - 2 * margin, 20);
@@ -841,15 +851,8 @@ void Midi2ArtAudioProcessorEditor::updateConnectionUI()
         baudRateComboBox.setVisible(true);
         
         // Set current baud rate from parameter
-        int currentBaudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_UNIVERSE));
-        // If value looks like a universe number (< 64000), set default baud rate
-        if (currentBaudRate < 64000)
-        {
-            currentBaudRate = 115200;
-            audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
-                ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
-                    ->convertTo0to1(115200));
-        }
+        int currentBaudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_BAUD_RATE));
+        
         // Select appropriate baud rate in combobox
         if (currentBaudRate == 57600) baudRateComboBox.setSelectedId(1);
         else if (currentBaudRate == 115200) baudRateComboBox.setSelectedId(2);
@@ -987,7 +990,7 @@ void Midi2ArtAudioProcessorEditor::updateLEDCountWarning()
     // Get current LED count, offset, and baud rate
     int ledCount = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_COUNT));
     int ledOffset = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_OFFSET));
-    int baudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_UNIVERSE));
+    int baudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_BAUD_RATE));
     
     // Calculate max safe LED count
     int totalLEDs = ledOffset + ledCount;

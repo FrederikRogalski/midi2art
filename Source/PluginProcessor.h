@@ -79,7 +79,8 @@ public:
     static constexpr const char* PARAM_WLED_IP = "wledIP";
     static constexpr const char* PARAM_SERIAL_PORT = "serialPort";
     static constexpr const char* PARAM_PROTOCOL = "protocol";
-    static constexpr const char* PARAM_UNIVERSE = "universe";
+    static constexpr const char* PARAM_UNIVERSE = "universe";  // Network protocols only (Art-Net, E1.31)
+    static constexpr const char* PARAM_BAUD_RATE = "baudRate";  // Adalight serial only
     
     // MIDI learn state
     enum class MidiLearnState
@@ -132,7 +133,8 @@ private:
     juce::String currentWLEDIP = "239.255.0.1";  // E1.31 Multicast Universe 1
     juce::String currentSerialPort = "";          // Serial port for Adalight
     int currentProtocol = 1;       // 0 = Art-Net, 1 = E1.31 (default), 2 = Adalight
-    int currentUniverse = 1;       // Universe number (WLED default start universe is 1)
+    int currentUniverse = 1;       // Universe number for network protocols (Art-Net, E1.31)
+    int currentBaudRate = 115200;  // Baud rate for Adalight serial
     juce::Colour currentColor = juce::Colours::white;
     
     // ADSR parameters (piano-like defaults)
