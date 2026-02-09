@@ -366,16 +366,33 @@ private:
                 closeSerialPort();
             }
         #else
-            ssize_t result = write(serialHandle, data, length);
-            if (result < 0)
+            // Handle partial writes by looping until all data is sent
+            size_t totalWritten = 0;
+            while (totalWritten < length)
             {
-                DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
-                // Write failed (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
-                closeSerialPort();
-            }
-            else if (result != static_cast<ssize_t>(length))
-            {
-                DBG("AdalightSender::writeSerial - PARTIAL WRITE: " + juce::String(result) + " of " + juce::String((int)length) + " bytes");
+                ssize_t result = write(serialHandle, data + totalWritten, length - totalWritten);
+                
+                if (result < 0)
+                {
+                    DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
+                    // Write failed (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
+                    closeSerialPort();
+                    return;
+                }
+                else if (result == 0)
+                {
+                    // No data written (should not happen with blocking writes, but handle it)
+                    DBG("AdalightSender::writeSerial - ZERO BYTES WRITTEN, breaking");
+                    break;
+                }
+                
+                totalWritten += result;
+                
+                if (totalWritten < length)
+                {
+                    DBG("AdalightSender::writeSerial - PARTIAL WRITE: " + juce::String((int)result) + " bytes, " + 
+                        juce::String((int)(length - totalWritten)) + " remaining, retrying...");
+                }
             }
         #endif
     }

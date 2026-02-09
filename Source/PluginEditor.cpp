@@ -576,8 +576,11 @@ void Midi2ArtAudioProcessorEditor::resized()
     const int learnButtonWidth = 60;
     const int learnButtonSpacing = 10;
     
-    // Calculate total content height
-    int totalContentHeight = 2 * sliderHeight + sliderSpacing + noteKnobSize + labelHeight + 2; // 2 sliders + spacing + knob + label
+    // Calculate total content height with warning
+    const int warningHeight = 15;
+    const int warningSpacing = 8;  // Reduced spacing after warning
+    const int sliderReducedSpacing = 28;  // Reduced from 35 to make room for warning
+    int totalContentHeight = warningHeight + warningSpacing + 2 * sliderHeight + sliderReducedSpacing + noteKnobSize + labelHeight + 2;
     int availableHeight = ledArea.getHeight();
     int verticalPadding = (availableHeight - totalContentHeight) / 2;
     
@@ -585,20 +588,20 @@ void Midi2ArtAudioProcessorEditor::resized()
     y = ledArea.getY() + verticalPadding;
     
     // LED Count Warning (above LED Offset)
-    ledCountWarningLabel.setBounds(ledArea.getX(), y, ledArea.getWidth(), 15);
-    y += 18; // Warning height + small spacing
+    ledCountWarningLabel.setBounds(ledArea.getX(), y, ledArea.getWidth(), warningHeight);
+    y += warningHeight + warningSpacing;
     
     // LED Offset (swapped - first)
     ledOffsetLabel.setBounds(ledArea.getX(), y, labelWidth - 10, sliderHeight);
     juce::Rectangle<int> offsetSliderBounds(ledArea.getX() + labelWidth, y, ledArea.getWidth() - labelWidth, sliderHeight);
     ledOffsetSlider.setBounds(offsetSliderBounds);
-    y += sliderSpacing;
+    y += sliderReducedSpacing;
     
     // LED Count (swapped - second)
     ledCountLabel.setBounds(ledArea.getX(), y, labelWidth - 10, sliderHeight);
     juce::Rectangle<int> countSliderBounds(ledArea.getX() + labelWidth, y, ledArea.getWidth() - labelWidth, sliderHeight);
     ledCountSlider.setBounds(countSliderBounds);
-    y += sliderSpacing + 10; // Extra spacing before note knobs
+    y += sliderReducedSpacing + 10; // Extra spacing before note knobs
     
     // Note range knobs - spaceBetween: leftmost and rightmost positions
     // Position Lowest Note (leftmost position)
