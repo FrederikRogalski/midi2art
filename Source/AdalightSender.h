@@ -185,12 +185,7 @@ private:
     // Pre-allocated packet buffer: 6-byte header + max 512 LEDs * 3 bytes = 1542 bytes
     static constexpr int MAX_PACKET_SIZE = 6 + 512 * 3;
     uint8_t packetBuffer[MAX_PACKET_SIZE] = {0};
-    
-    // Debug counters for write statistics
-    int successfulWrites = 0;
-    int droppedFrames = 0;      // EAGAIN/EWOULDBLOCK
-    int partialWrites = 0;      // Wrote less than requested
-    int writeErrors = 0;        // Other errors
+    // Other errors
     
     #if !JUCE_WINDOWS
     // Convert integer baud rate to termios speed_t constant
@@ -334,12 +329,6 @@ private:
             // Flush any existing data
             tcflush(serialHandle, TCIOFLUSH);
             
-            // Reset debug counters
-            successfulWrites = 0;
-            droppedFrames = 0;
-            partialWrites = 0;
-            writeErrors = 0;
-            
             DBG("AdalightSender::openSerialPort - SUCCESS! Port configured and ready");
         #endif
     }
@@ -398,21 +387,10 @@ private:
                 if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
                     // Kernel buffer full - drop this frame (don't block the audio thread)
-                    droppedFrames++;
-                    
-                    // Log stats every 300 frames (~10 seconds at 30Hz)
-                    if ((successfulWrites + droppedFrames + partialWrites) % 300 == 0)
-                    {
-                        DBG("AdalightSender stats - Success: " + juce::String(successfulWrites) + 
-                            ", Dropped: " + juce::String(droppedFrames) + 
-                            ", Partial: " + juce::String(partialWrites) + 
-                            ", Errors: " + juce::String(writeErrors));
-                    }
                     return;
                 }
                 
                 DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
-                writeErrors++;
                 // Actual error (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
                 closeSerialPort();
                 return;
@@ -425,22 +403,8 @@ private:
                 // followed by the header of the next packet, causing desync.
                 // Flush the output buffer to discard the partial packet, so the next
                 // full packet starts cleanly from the receiver's perspective.
-                partialWrites++;
                 DBG("AdalightSender::writeSerial - PARTIAL WRITE: sent " + juce::String((int)result) + "/" + juce::String((int)length) + " bytes");
                 tcflush(serialHandle, TCOFLUSH);
-            }
-            else
-            {
-                successfulWrites++;
-                
-                // Log stats every 300 frames (~10 seconds at 30Hz)
-                if ((successfulWrites + droppedFrames + partialWrites) % 300 == 0)
-                {
-                    DBG("AdalightSender stats - Success: " + juce::String(successfulWrites) + 
-                        ", Dropped: " + juce::String(droppedFrames) + 
-                        ", Partial: " + juce::String(partialWrites) + 
-                        ", Errors: " + juce::String(writeErrors));
-                }
             }
         #endif
     }
