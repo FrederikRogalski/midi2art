@@ -44,7 +44,7 @@ KeyGlowAudioProcessor::KeyGlowAudioProcessor()
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
                    std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 2, 2),  // 0 = Art-Net, 1 = E1.31, 2 = Adalight
                    std::make_unique<juce::AudioParameterInt>(PARAM_UNIVERSE, "Universe", 0, 63999, 1),  // Network protocols only (Art-Net, E1.31)
-                   std::make_unique<juce::AudioParameterInt>(PARAM_BAUD_RATE, "Baud Rate", 57600, 921600, 115200)  // Adalight serial only
+                    std::make_unique<juce::AudioParameterInt>(PARAM_BAUD_RATE, "Baud Rate", 57600, 921600, 921600)  // Adalight serial only
                })
 {
     previousLEDCount = *parameters.getRawParameterValue(PARAM_LED_COUNT);
