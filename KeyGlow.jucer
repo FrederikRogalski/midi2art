@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="midi2art" name="MIDI2Art" projectType="audioplug" useAppConfig="0"
+<JUCERPROJECT id="keyglow" name="KeyGlow" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
-              version="1.0.0" companyName="Revoki UG" companyCopyright="2025"
-              companyWebsite="www.revoki.de" companyEmail="info@revoki.de"
+              version="1.0.0" companyName="Revoki" companyCopyright="2025"
+              companyWebsite="keyglow.revoki.de" companyEmail="info@revoki.de"
               pluginCharacteristicsValue="pluginWantsMidiIn, pluginIsSynth" pluginAUMainType="'aumu'">
-  <MAINGROUP id="root" name="MIDI2Art">
+  <MAINGROUP id="root" name="KeyGlow">
     <GROUP id="Source" name="Source">
       <FILE id="UpcKJ1" name="Background.png" compile="0" resource="1" file="Background.png"/>
       <FILE id="PluginProcessor" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -24,8 +24,8 @@
             file="Source/DMXSender.h"/>
       <FILE id="E131SenderHeader" name="E131Sender.h" compile="0" resource="0"
             file="Source/E131Sender.h"/>
-      <FILE id="Midi2ArtLookAndFeelHeader" name="Midi2ArtLookAndFeel.h" compile="0" resource="0"
-            file="Source/Midi2ArtLookAndFeel.h"/>
+      <FILE id="KeyGlowLookAndFeelHeader" name="KeyGlowLookAndFeel.h" compile="0" resource="0"
+            file="Source/KeyGlowLookAndFeel.h"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
@@ -51,8 +51,8 @@
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="MIDI2Art"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="MIDI2Art"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="KeyGlow"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="KeyGlow"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path=""/>
@@ -72,19 +72,19 @@
     </XCODE_MAC>
   </EXPORTFORMATS>
   <PLUGINS>
-    <PLUGIN name="MIDI2Art" desc="MIDI to Art-Net converter" manufacturer="YourCompany"
-            pluginCode="M2Ar" pluginType="normalPlugin" aaxIdentifier="com.yourcompany.midi2art"
+    <PLUGIN name="KeyGlow" desc="MIDI to LED strip visualizer" manufacturer="Revoki"
+            pluginCode="KyGl" pluginType="normalPlugin" aaxIdentifier="com.Revoki.KeyGlow"
             aaxCategory="2048" vst3Category="Instrument|MidiFx" auMainType="aumu"
-            auExportPrefix="MIDI2ArtAU" auViewClass="MIDI2ArtAU_V1" auViewFactoryFunction="MIDI2ArtAU_V1_Factory"
-            auBundleName="MIDI2Art" auSubType="M2Ar" auManufacturerCode="YrCm"
-            aaxManufacturerCode="YrCm" companyName="YourCompany" companyWebsite="www.yourcompany.com"
-            companyEmail="info@yourcompany.com" pluginVersion="1.0.0" pluginDesc="MIDI to Art-Net converter"
-            pluginManufacturer="YourCompany" isSynth="1" wantsMidiInput="1"
+            auExportPrefix="KeyGlowAU" auViewClass="KeyGlowAU_V1" auViewFactoryFunction="KeyGlowAU_V1_Factory"
+            auBundleName="KeyGlow" auSubType="KyGl" auManufacturerCode="Rvki"
+            aaxManufacturerCode="Rvki" companyName="Revoki" companyWebsite="keyglow.revoki.de"
+            companyEmail="info@revoki.de" pluginVersion="1.0.0" pluginDesc="MIDI to LED strip visualizer"
+            pluginManufacturer="Revoki" isSynth="1" wantsMidiInput="1"
             producesMidiOut="0" isMidiEffectPlugin="0" editorRequiresKeys="0"
             pluginAAXCategory="2048" pluginVST3Category="Instrument|MidiFx"
-            pluginRTASCategory="2048" pluginAUMainType="aumu" pluginAUExportPrefix="MIDI2ArtAU"
-            pluginAUViewClass="MIDI2ArtAU_V1" pluginAUViewFactoryFunction="MIDI2ArtAU_V1_Factory"
-            pluginAUBundleName="MIDI2Art" pluginAUSubType="M2Ar" pluginAUManufacturerCode="YrCm"
-            pluginAAXManufacturerCode="YrCm"/>
+            pluginRTASCategory="2048" pluginAUMainType="aumu" pluginAUExportPrefix="KeyGlowAU"
+            pluginAUViewClass="KeyGlowAU_V1" pluginAUViewFactoryFunction="KeyGlowAU_V1_Factory"
+            pluginAUBundleName="KeyGlow" pluginAUSubType="KyGl" pluginAUManufacturerCode="Rvki"
+            pluginAAXManufacturerCode="Rvki"/>
   </PLUGINS>
 </JUCERPROJECT>

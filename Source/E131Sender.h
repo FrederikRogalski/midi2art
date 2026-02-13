@@ -170,7 +170,7 @@ public:
         }
         
         // Set source name
-        juce::String sourceNameStr = "MIDI2Art";
+        juce::String sourceNameStr = "KeyGlow";
         memcpy(sourceName, sourceNameStr.toRawUTF8(), juce::jmin(64, sourceNameStr.length()));
     }
     

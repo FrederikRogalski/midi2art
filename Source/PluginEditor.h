@@ -10,18 +10,18 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "Midi2ArtLookAndFeel.h"
+#include "KeyGlowLookAndFeel.h"
 
 //==============================================================================
 /**
 */
-class Midi2ArtAudioProcessorEditor  : public juce::AudioProcessorEditor,
+class KeyGlowAudioProcessorEditor  : public juce::AudioProcessorEditor,
                                        public juce::ChangeListener,
                                        public juce::Timer
 {
 public:
-    Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcessor&);
-    ~Midi2ArtAudioProcessorEditor() override;
+    KeyGlowAudioProcessorEditor (KeyGlowAudioProcessor&);
+    ~KeyGlowAudioProcessorEditor() override;
 
     //==============================================================================
     void paint (juce::Graphics&) override;
@@ -31,7 +31,7 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
-    Midi2ArtAudioProcessor& audioProcessor;
+    KeyGlowAudioProcessor& audioProcessor;
     
     // UI Components - Color Section (Most Prominent)
     juce::ColourSelector colourSelector;
@@ -115,7 +115,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> valAttachment;
 
     // Custom LookAndFeel for knobs/buttons (kept very small & focused)
-    std::unique_ptr<Midi2ArtLookAndFeel> customLookAndFeel;
+    std::unique_ptr<KeyGlowLookAndFeel> customLookAndFeel;
     
     juce::StringArray lastKnownSerialPorts;
     juce::String lastUserSelectedSerialPort;  // Remembers user's choice for auto-reconnect
@@ -136,6 +136,6 @@ private:
     void updateLEDCountWarning();
     int calculateMaxLEDCount(int baudRate, int fps = 30);  // Calculate max safe LED count for given baud rate
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Midi2ArtAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyGlowAudioProcessorEditor)
 };
 

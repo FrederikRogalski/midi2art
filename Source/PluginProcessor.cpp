@@ -11,7 +11,7 @@
 #include <cmath>
 
 //==============================================================================
-Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
+KeyGlowAudioProcessor::KeyGlowAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
@@ -22,9 +22,9 @@ Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
                      #endif
                        ),
 #endif
-    parameters(*this, nullptr, juce::Identifier("Midi2ArtParams"),
+    parameters(*this, nullptr, juce::Identifier("KeyGlowParams"),
                {
-                   std::make_unique<juce::AudioParameterInt>(PARAM_LED_COUNT, "LED Count", 1, 512, 88),
+                   std::make_unique<juce::AudioParameterInt>(PARAM_LED_COUNT, "LED Count", 1, 512, 74),
                    std::make_unique<juce::AudioParameterInt>(PARAM_LED_OFFSET, "LED Offset", 0, DMXSender::WLED_LEDS_PER_UNIVERSE, 0),  // Max 170 (LEDs per universe)
                    std::make_unique<juce::AudioParameterInt>(PARAM_LOWEST_NOTE, "Lowest Note", 0, 127, 21),  // A0
                    std::make_unique<juce::AudioParameterInt>(PARAM_HIGHEST_NOTE, "Highest Note", 0, 127, 108),  // C8
@@ -42,7 +42,7 @@ Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
                    std::make_unique<juce::AudioParameterFloat>(PARAM_COLOR_VAL, "Color Value",
                        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f),
-                   std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 2, 1),  // 0 = Art-Net, 1 = E1.31, 2 = Adalight
+                   std::make_unique<juce::AudioParameterInt>(PARAM_PROTOCOL, "Protocol", 0, 2, 2),  // 0 = Art-Net, 1 = E1.31, 2 = Adalight
                    std::make_unique<juce::AudioParameterInt>(PARAM_UNIVERSE, "Universe", 0, 63999, 1),  // Network protocols only (Art-Net, E1.31)
                    std::make_unique<juce::AudioParameterInt>(PARAM_BAUD_RATE, "Baud Rate", 57600, 921600, 115200)  // Adalight serial only
                })
@@ -69,17 +69,17 @@ Midi2ArtAudioProcessor::Midi2ArtAudioProcessor()
     createProtocolSender(currentProtocol);
 }
 
-Midi2ArtAudioProcessor::~Midi2ArtAudioProcessor()
+KeyGlowAudioProcessor::~KeyGlowAudioProcessor()
 {
 }
 
 //==============================================================================
-const juce::String Midi2ArtAudioProcessor::getName() const
+const juce::String KeyGlowAudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
 
-bool Midi2ArtAudioProcessor::acceptsMidi() const
+bool KeyGlowAudioProcessor::acceptsMidi() const
 {
    #if JucePlugin_WantsMidiInput
     return true;
@@ -88,7 +88,7 @@ bool Midi2ArtAudioProcessor::acceptsMidi() const
    #endif
 }
 
-bool Midi2ArtAudioProcessor::producesMidi() const
+bool KeyGlowAudioProcessor::producesMidi() const
 {
    #if JucePlugin_ProducesMidiOutput
     return true;
@@ -97,7 +97,7 @@ bool Midi2ArtAudioProcessor::producesMidi() const
    #endif
 }
 
-bool Midi2ArtAudioProcessor::isMidiEffect() const
+bool KeyGlowAudioProcessor::isMidiEffect() const
 {
    #if JucePlugin_IsMidiEffect
     return true;
@@ -106,47 +106,48 @@ bool Midi2ArtAudioProcessor::isMidiEffect() const
    #endif
 }
 
-double Midi2ArtAudioProcessor::getTailLengthSeconds() const
+double KeyGlowAudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
 }
 
-int Midi2ArtAudioProcessor::getNumPrograms()
+int KeyGlowAudioProcessor::getNumPrograms()
 {
     return 1;
 }
 
-int Midi2ArtAudioProcessor::getCurrentProgram()
+int KeyGlowAudioProcessor::getCurrentProgram()
 {
     return 0;
 }
 
-void Midi2ArtAudioProcessor::setCurrentProgram (int index)
+void KeyGlowAudioProcessor::setCurrentProgram (int index)
 {
 }
 
-const juce::String Midi2ArtAudioProcessor::getProgramName (int index)
+const juce::String KeyGlowAudioProcessor::getProgramName (int index)
 {
     return {};
 }
 
-void Midi2ArtAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void KeyGlowAudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
 }
 
 //==============================================================================
-void Midi2ArtAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void KeyGlowAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     this->sampleRate = sampleRate;
     updateCounter = 0;
+    updateInterval = static_cast<int>(sampleRate / TARGET_UPDATE_HZ);
 }
 
-void Midi2ArtAudioProcessor::releaseResources()
+void KeyGlowAudioProcessor::releaseResources()
 {
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool Midi2ArtAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool KeyGlowAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
   #if JucePlugin_IsMidiEffect
     juce::ignoreUnused (layouts);
@@ -164,7 +165,7 @@ bool Midi2ArtAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts)
 }
 #endif
 
-void Midi2ArtAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void KeyGlowAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     
@@ -211,7 +212,7 @@ void Midi2ArtAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     if (activeNotes.size() > 0)
     {
         updateCounter += numSamples;
-        if (updateCounter >= UPDATE_INTERVAL)
+        if (updateCounter >= updateInterval)
         {
             updateArtNetOutput();
             updateCounter = 0;
@@ -228,25 +229,25 @@ void Midi2ArtAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 }
 
 //==============================================================================
-bool Midi2ArtAudioProcessor::hasEditor() const
+bool KeyGlowAudioProcessor::hasEditor() const
 {
     return true;
 }
 
-juce::AudioProcessorEditor* Midi2ArtAudioProcessor::createEditor()
+juce::AudioProcessorEditor* KeyGlowAudioProcessor::createEditor()
 {
-    return new Midi2ArtAudioProcessorEditor (*this);
+    return new KeyGlowAudioProcessorEditor (*this);
 }
 
 //==============================================================================
-void Midi2ArtAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void KeyGlowAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = parameters.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
 
-void Midi2ArtAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void KeyGlowAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
 
@@ -258,7 +259,7 @@ void Midi2ArtAudioProcessor::setStateInformation (const void* data, int sizeInBy
 }
 
 //==============================================================================
-void Midi2ArtAudioProcessor::updateParameters()
+void KeyGlowAudioProcessor::updateParameters()
 {
     // Update protocol FIRST - ensures the correct sender is active
     // before any visual feedback or data is sent
@@ -391,7 +392,7 @@ void Midi2ArtAudioProcessor::updateParameters()
     }
 }
 
-void Midi2ArtAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
+void KeyGlowAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
 {
     bool notesChanged = false;
     
@@ -548,7 +549,7 @@ void Midi2ArtAudioProcessor::processMidiMessages(juce::MidiBuffer& midiMessages)
     }
 }
 
-void Midi2ArtAudioProcessor::updateArtNetOutput()
+void KeyGlowAudioProcessor::updateArtNetOutput()
 {
     // Calculate the actual range we need to cover
     // Packet covers LEDs from 0 to (offset + count - 1)
@@ -596,7 +597,7 @@ void Midi2ArtAudioProcessor::updateArtNetOutput()
     }
 }
 
-int Midi2ArtAudioProcessor::midiNoteToLEDIndex(int midiNote) const
+int KeyGlowAudioProcessor::midiNoteToLEDIndex(int midiNote) const
 {
     if (currentLEDCount == 0)
         return 0;
@@ -626,7 +627,7 @@ int Midi2ArtAudioProcessor::midiNoteToLEDIndex(int midiNote) const
     return ledIndex + currentLEDOffset;
 }
 
-void Midi2ArtAudioProcessor::sendVisualFeedback()
+void KeyGlowAudioProcessor::sendVisualFeedback()
 {
     // Send visual feedback pattern: bright edges, dim middle
     int patternEnd = currentLEDOffset + currentLEDCount - 1;
@@ -637,7 +638,7 @@ void Midi2ArtAudioProcessor::sendVisualFeedback()
     }
 }
 
-void Midi2ArtAudioProcessor::sendVisualFeedbackWithRange(int rangeLEDCount)
+void KeyGlowAudioProcessor::sendVisualFeedbackWithRange(int rangeLEDCount)
 {
     // Send visual feedback pattern for currentLEDCount at currentLEDOffset, 
     // but in a packet covering rangeLEDCount
@@ -649,7 +650,7 @@ void Midi2ArtAudioProcessor::sendVisualFeedbackWithRange(int rangeLEDCount)
 }
 
 //==============================================================================
-void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
+void KeyGlowAudioProcessor::createProtocolSender(int protocol)
 {
     DBG("============================================");
     DBG("PluginProcessor::createProtocolSender - PROTOCOL SWITCH to: " + juce::String(protocol));
@@ -721,6 +722,6 @@ void Midi2ArtAudioProcessor::createProtocolSender(int protocol)
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new Midi2ArtAudioProcessor();
+    return new KeyGlowAudioProcessor();
 }
 

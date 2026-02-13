@@ -17,13 +17,13 @@
 //==============================================================================
 /**
 */
-class Midi2ArtAudioProcessor  : public juce::AudioProcessor,
+class KeyGlowAudioProcessor  : public juce::AudioProcessor,
                                   public juce::ChangeBroadcaster
 {
 public:
     //==============================================================================
-    Midi2ArtAudioProcessor();
-    ~Midi2ArtAudioProcessor() override;
+    KeyGlowAudioProcessor();
+    ~KeyGlowAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -148,8 +148,10 @@ private:
     
     // Update rate for LED output when notes are active (send at ~30Hz to avoid serial bandwidth saturation)
     // At 115200 baud: max 50.5 fps theoretical, 30 fps = 59% capacity (safe headroom)
+    // Computed dynamically from sampleRate in prepareToPlay() to handle 44.1/48/96kHz etc.
     int updateCounter = 0;
-    static constexpr int UPDATE_INTERVAL = 1470; // 44100 / 30 (samples between updates)
+    static constexpr int TARGET_UPDATE_HZ = 30;
+    int updateInterval = 1470; // default for 44100Hz, recalculated in prepareToPlay()
     
     // Previous LED count for visual feedback
     int previousLEDCount = 0;
@@ -167,6 +169,6 @@ private:
     void sendVisualFeedbackWithRange(int rangeLEDCount);
     void createProtocolSender(int protocol);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Midi2ArtAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyGlowAudioProcessor)
 };
 

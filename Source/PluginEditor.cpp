@@ -11,11 +11,11 @@
 #include "AdalightSender.h"
 
 //==============================================================================
-Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcessor& p)
+KeyGlowAudioProcessorEditor::KeyGlowAudioProcessorEditor (KeyGlowAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     // Install custom LookAndFeel (minimal, only tweaks knob / button drawing)
-    customLookAndFeel = std::make_unique<Midi2ArtLookAndFeel>();
+    customLookAndFeel = std::make_unique<KeyGlowLookAndFeel>();
     setLookAndFeel (customLookAndFeel.get());
 
     // Set plugin window size
@@ -41,17 +41,17 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     
     // Color parameter attachments
     hueAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_COLOR_HUE, hueSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_COLOR_HUE, hueSlider);
     satAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_COLOR_SAT, satSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_COLOR_SAT, satSlider);
     valAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_COLOR_VAL, valSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_COLOR_VAL, valSlider);
     
     // Color Selector - using JUCE's built-in component
     // Initialize with current parameter values
-    float h = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_COLOR_HUE));
-    float s = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_COLOR_SAT));
-    float v = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_COLOR_VAL));
+    float h = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_COLOR_HUE));
+    float s = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_COLOR_SAT));
+    float v = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_COLOR_VAL));
     colourSelector.setCurrentColour(juce::Colour::fromHSV(h, s, v, 1.0f));
     
     colourSelector.setColour(juce::ColourSelector::backgroundColourId, juce::Colour(0x00000000));
@@ -101,7 +101,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     attackSlider.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff808080));
     addAndMakeVisible(attackSlider);
     attackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_ATTACK, attackSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_ATTACK, attackSlider);
     attackSlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     // Decay
@@ -121,7 +121,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     decaySlider.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff808080));
     addAndMakeVisible(decaySlider);
     decayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_DECAY, decaySlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_DECAY, decaySlider);
     decaySlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     // Sustain
@@ -141,7 +141,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     sustainSlider.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff808080));
     addAndMakeVisible(sustainSlider);
     sustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_SUSTAIN, sustainSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_SUSTAIN, sustainSlider);
     sustainSlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     // Release
@@ -161,7 +161,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     releaseSlider.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff808080));
     addAndMakeVisible(releaseSlider);
     releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_RELEASE, releaseSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_RELEASE, releaseSlider);
     releaseSlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     // ============================================================================
@@ -177,7 +177,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     ledCountSlider.setInterceptsMouseClicks(true, true);
     addAndMakeVisible(ledCountSlider);
     ledCountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_LED_COUNT, ledCountSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_LED_COUNT, ledCountSlider);
     ledCountSlider.onValueChange = [this] {
         updateLEDCountWarning();
     };
@@ -191,7 +191,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     ledOffsetSlider.setInterceptsMouseClicks(true, true);
     addAndMakeVisible(ledOffsetSlider);
     ledOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_LED_OFFSET, ledOffsetSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_LED_OFFSET, ledOffsetSlider);
     ledOffsetSlider.onValueChange = [this] {
         updateLEDCountWarning();
     };
@@ -220,7 +220,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     };
     addAndMakeVisible(lowestNoteSlider);
     lowestNoteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_LOWEST_NOTE, lowestNoteSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_LOWEST_NOTE, lowestNoteSlider);
     lowestNoteSlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     lowestNoteLearnButton.setButtonText("Learn");
@@ -229,15 +229,15 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     lowestNoteLearnButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     lowestNoteLearnButton.onClick = [this] {
         auto state = audioProcessor.getMidiLearnState();
-        if (state == Midi2ArtAudioProcessor::MidiLearnState::LearningLowestNote)
+        if (state == KeyGlowAudioProcessor::MidiLearnState::LearningLowestNote)
         {
-            audioProcessor.setMidiLearnState(Midi2ArtAudioProcessor::MidiLearnState::None);
+            audioProcessor.setMidiLearnState(KeyGlowAudioProcessor::MidiLearnState::None);
             lowestNoteLearnButton.setToggleState(false, juce::dontSendNotification);
             lowestNoteLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff333333));
         }
         else
         {
-            audioProcessor.setMidiLearnState(Midi2ArtAudioProcessor::MidiLearnState::LearningLowestNote);
+            audioProcessor.setMidiLearnState(KeyGlowAudioProcessor::MidiLearnState::LearningLowestNote);
             highestNoteLearnButton.setToggleState(false, juce::dontSendNotification);
             highestNoteLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff333333));
             lowestNoteLearnButton.setToggleState(true, juce::dontSendNotification);
@@ -271,7 +271,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     };
     addAndMakeVisible(highestNoteSlider);
     highestNoteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getValueTreeState(), Midi2ArtAudioProcessor::PARAM_HIGHEST_NOTE, highestNoteSlider);
+        audioProcessor.getValueTreeState(), KeyGlowAudioProcessor::PARAM_HIGHEST_NOTE, highestNoteSlider);
     highestNoteSlider.onValueChange = [this] { updateKnobValueLabels(); };
     
     highestNoteLearnButton.setButtonText("Learn");
@@ -280,15 +280,15 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     highestNoteLearnButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     highestNoteLearnButton.onClick = [this] {
         auto state = audioProcessor.getMidiLearnState();
-        if (state == Midi2ArtAudioProcessor::MidiLearnState::LearningHighestNote)
+        if (state == KeyGlowAudioProcessor::MidiLearnState::LearningHighestNote)
         {
-            audioProcessor.setMidiLearnState(Midi2ArtAudioProcessor::MidiLearnState::None);
+            audioProcessor.setMidiLearnState(KeyGlowAudioProcessor::MidiLearnState::None);
             highestNoteLearnButton.setToggleState(false, juce::dontSendNotification);
             highestNoteLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff333333));
         }
         else
         {
-            audioProcessor.setMidiLearnState(Midi2ArtAudioProcessor::MidiLearnState::LearningHighestNote);
+            audioProcessor.setMidiLearnState(KeyGlowAudioProcessor::MidiLearnState::LearningHighestNote);
             lowestNoteLearnButton.setToggleState(false, juce::dontSendNotification);
             lowestNoteLearnButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff333333));
             highestNoteLearnButton.setToggleState(true, juce::dontSendNotification);
@@ -317,13 +317,13 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
         // Map ComboBox ID (1,2,3) to parameter value (0,1,2)
         int selectedId = protocolComboBox.getSelectedId();
         int protocolValue = selectedId - 1; // 1->0 (Art-Net), 2->1 (E1.31), 3->2 (Adalight)
-        audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_PROTOCOL)
-            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_PROTOCOL)
+        audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_PROTOCOL)
+            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_PROTOCOL)
                 ->convertTo0to1(protocolValue));
         updateConnectionUI();
     };
     // Set initial value from parameter
-    int currentProtocol = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_PROTOCOL));
+    int currentProtocol = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_PROTOCOL));
     protocolComboBox.setSelectedId(currentProtocol + 1); // 0->1, 1->2, 2->3
     addAndMakeVisible(protocolComboBox);
     
@@ -335,12 +335,12 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     // IP Address Editor (for network protocols)
     ipAddressEditor.setMultiLine(false);
     ipAddressEditor.setReturnKeyStartsNewLine(false);
-    ipAddressEditor.setText(audioProcessor.getValueTreeState().state.getProperty(Midi2ArtAudioProcessor::PARAM_WLED_IP, "239.255.0.1").toString(), juce::dontSendNotification);
+    ipAddressEditor.setText(audioProcessor.getValueTreeState().state.getProperty(KeyGlowAudioProcessor::PARAM_WLED_IP, "239.255.0.1").toString(), juce::dontSendNotification);
     ipAddressEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
     ipAddressEditor.setColour(juce::TextEditor::textColourId, juce::Colours::white);
     ipAddressEditor.setBorder(juce::BorderSize<int>(0, 8, 0, 8));
     ipAddressEditor.onTextChange = [this] {
-        audioProcessor.getValueTreeState().state.setProperty(Midi2ArtAudioProcessor::PARAM_WLED_IP, ipAddressEditor.getText(), nullptr);
+        audioProcessor.getValueTreeState().state.setProperty(KeyGlowAudioProcessor::PARAM_WLED_IP, ipAddressEditor.getText(), nullptr);
     };
     ipAddressEditor.onReturnKey = [this] {
         ipAddressEditor.giveAwayKeyboardFocus();
@@ -363,7 +363,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
             
             // Remember the user's explicit choice for auto-reconnect
             lastUserSelectedSerialPort = portName;
-            audioProcessor.getValueTreeState().state.setProperty(Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, portName, nullptr);
+            audioProcessor.getValueTreeState().state.setProperty(KeyGlowAudioProcessor::PARAM_SERIAL_PORT, portName, nullptr);
             updateStatusLabel();
         }
     };
@@ -380,7 +380,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     // Set input filter to only allow numeric input
     universeEditor.setInputFilter(new juce::TextEditor::LengthAndCharacterRestriction(10, "0123456789"), true);
     // Set initial value from parameter
-    int currentUniverse = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_UNIVERSE));
+    int currentUniverse = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_UNIVERSE));
     universeEditor.setText(juce::String(currentUniverse), juce::dontSendNotification);
     universeEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
     universeEditor.setColour(juce::TextEditor::textColourId, juce::Colours::white);
@@ -392,8 +392,8 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
         {
             int universeValue = text.getIntValue();
             universeValue = juce::jlimit(0, 63999, universeValue); // Clamp to valid range
-            audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
-                ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_UNIVERSE)
+            audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_UNIVERSE)
+                ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_UNIVERSE)
                     ->convertTo0to1(universeValue));
         }
     };
@@ -419,8 +419,8 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
             case 4: selectedBaudRate = 460800; break;
             case 5: selectedBaudRate = 921600; break;
         }
-        audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_BAUD_RATE)
-            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_BAUD_RATE)
+        audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_BAUD_RATE)
+            ->setValueNotifyingHost(audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_BAUD_RATE)
                 ->convertTo0to1(selectedBaudRate));
         updateLEDCountWarning(); // Recalculate warning when baud rate changes
     };
@@ -444,7 +444,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     
     // Restore last user-selected serial port from saved state (for auto-reconnect)
     lastUserSelectedSerialPort = audioProcessor.getValueTreeState().state.getProperty(
-        Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "").toString();
+        KeyGlowAudioProcessor::PARAM_SERIAL_PORT, "").toString();
     
     updateStatusLabel();
     updateConnectionUI();
@@ -453,7 +453,7 @@ Midi2ArtAudioProcessorEditor::Midi2ArtAudioProcessorEditor (Midi2ArtAudioProcess
     audioProcessor.addChangeListener(this);
 }
 
-Midi2ArtAudioProcessorEditor::~Midi2ArtAudioProcessorEditor()
+KeyGlowAudioProcessorEditor::~KeyGlowAudioProcessorEditor()
 {
     stopTimer();
     
@@ -463,7 +463,7 @@ Midi2ArtAudioProcessorEditor::~Midi2ArtAudioProcessorEditor()
     audioProcessor.removeChangeListener(this);
 }
 
-void Midi2ArtAudioProcessorEditor::timerCallback()
+void KeyGlowAudioProcessorEditor::timerCallback()
 {
     // Periodically check if the selected serial port is still available
     // This detects USB device disconnection
@@ -472,7 +472,7 @@ void Midi2ArtAudioProcessorEditor::timerCallback()
 }
 
 //==============================================================================
-void Midi2ArtAudioProcessorEditor::paint (juce::Graphics& g)
+void KeyGlowAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // Draw background image if available
     if (hasBackgroundImage && backgroundImage.isValid())
@@ -489,7 +489,7 @@ void Midi2ArtAudioProcessorEditor::paint (juce::Graphics& g)
     // Section backgrounds removed - background image provides visual grouping
 }
 
-void Midi2ArtAudioProcessorEditor::resized()
+void KeyGlowAudioProcessorEditor::resized()
 {
     const int margin = 20;
     const int padding = 15;
@@ -666,7 +666,7 @@ void Midi2ArtAudioProcessorEditor::resized()
     statusLabel.setBounds(margin, networkSectionBounds.getBottom() + 10, getWidth() - 2 * margin, 20);
 }
 
-void Midi2ArtAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
+void KeyGlowAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
 {
     // Click-outside: Wenn außerhalb der Text-Editors geklickt wird, Focus entfernen
     if (! ipAddressEditor.getBounds().contains (e.getPosition()) &&
@@ -677,7 +677,7 @@ void Midi2ArtAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
     }
 }
 
-void Midi2ArtAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
+void KeyGlowAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
 {
     if (source == &colourSelector)
     {
@@ -690,7 +690,7 @@ void Midi2ArtAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaste
         
         // Update MIDI learn button states when learn state changes
         auto learnState = audioProcessor.getMidiLearnState();
-        if (learnState == Midi2ArtAudioProcessor::MidiLearnState::LearningLowestNote)
+        if (learnState == KeyGlowAudioProcessor::MidiLearnState::LearningLowestNote)
         {
             if (!lowestNoteLearnButton.getToggleState())
             {
@@ -699,7 +699,7 @@ void Midi2ArtAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaste
                 repaint();
             }
         }
-        else if (learnState == Midi2ArtAudioProcessor::MidiLearnState::LearningHighestNote)
+        else if (learnState == KeyGlowAudioProcessor::MidiLearnState::LearningHighestNote)
         {
             if (!highestNoteLearnButton.getToggleState())
             {
@@ -726,7 +726,7 @@ void Midi2ArtAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaste
     }
 }
 
-void Midi2ArtAudioProcessorEditor::updateColorFromSelector()
+void KeyGlowAudioProcessorEditor::updateColorFromSelector()
 {
     juce::Colour currentColour = colourSelector.getCurrentColour();
     float h, s, v;
@@ -734,40 +734,40 @@ void Midi2ArtAudioProcessorEditor::updateColorFromSelector()
     
     // Update parameters directly (h, s, v are already 0.0-1.0, so use them directly)
     // setValueNotifyingHost expects normalized 0.0-1.0 values
-    audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_COLOR_HUE)->setValueNotifyingHost(h);
-    audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_COLOR_SAT)->setValueNotifyingHost(s);
-    audioProcessor.getValueTreeState().getParameter(Midi2ArtAudioProcessor::PARAM_COLOR_VAL)->setValueNotifyingHost(v);
+    audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_COLOR_HUE)->setValueNotifyingHost(h);
+    audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_COLOR_SAT)->setValueNotifyingHost(s);
+    audioProcessor.getValueTreeState().getParameter(KeyGlowAudioProcessor::PARAM_COLOR_VAL)->setValueNotifyingHost(v);
 }
 
-void Midi2ArtAudioProcessorEditor::updateKnobValueLabels()
+void KeyGlowAudioProcessorEditor::updateKnobValueLabels()
 {
     // ADSR values
-    float attack = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_ATTACK));
+    float attack = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_ATTACK));
     attackValueLabel.setText(juce::String(attack, 2) + "s", juce::dontSendNotification);
     
-    float decay = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_DECAY));
+    float decay = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_DECAY));
     decayValueLabel.setText(juce::String(decay, 2) + "s", juce::dontSendNotification);
     
-    float sustain = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_SUSTAIN));
+    float sustain = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_SUSTAIN));
     sustainValueLabel.setText(juce::String(sustain, 2), juce::dontSendNotification);
     
-    float release = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_RELEASE));
+    float release = static_cast<float>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_RELEASE));
     releaseValueLabel.setText(juce::String(release, 2) + "s", juce::dontSendNotification);
     
     // Note values
-    int lowestNote = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LOWEST_NOTE));
+    int lowestNote = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_LOWEST_NOTE));
     const char* noteNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     int octave = (lowestNote / 12) - 1;
     int noteIndex = lowestNote % 12;
     lowestNoteValueLabel.setText(juce::String(noteNames[noteIndex]) + juce::String(octave), juce::dontSendNotification);
     
-    int highestNote = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_HIGHEST_NOTE));
+    int highestNote = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_HIGHEST_NOTE));
     octave = (highestNote / 12) - 1;
     noteIndex = highestNote % 12;
     highestNoteValueLabel.setText(juce::String(noteNames[noteIndex]) + juce::String(octave), juce::dontSendNotification);
 }
 
-void Midi2ArtAudioProcessorEditor::updateStatusLabel()
+void KeyGlowAudioProcessorEditor::updateStatusLabel()
 {
     int activeNotes = audioProcessor.getActiveNotesCount();
     
@@ -792,10 +792,10 @@ void Midi2ArtAudioProcessorEditor::updateStatusLabel()
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 }
 
-void Midi2ArtAudioProcessorEditor::checkSerialPortConnection()
+void KeyGlowAudioProcessorEditor::checkSerialPortConnection()
 {
     // Active port = currently connected and selected
-    juce::String activePort = audioProcessor.getValueTreeState().state.getProperty(Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "").toString();
+    juce::String activePort = audioProcessor.getValueTreeState().state.getProperty(KeyGlowAudioProcessor::PARAM_SERIAL_PORT, "").toString();
     
     if (activePort.isNotEmpty())
     {
@@ -820,7 +820,7 @@ void Midi2ArtAudioProcessorEditor::checkSerialPortConnection()
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
 }
 
-void Midi2ArtAudioProcessorEditor::loadBackgroundImage()
+void KeyGlowAudioProcessorEditor::loadBackgroundImage()
 {
     // Load from BinaryData (image added as binary resource via Projucer)
     // Adjust name if your file is not exactly "Background.png"
@@ -831,7 +831,7 @@ void Midi2ArtAudioProcessorEditor::loadBackgroundImage()
     hasBackgroundImage = backgroundImage.isValid();
 }
 
-void Midi2ArtAudioProcessorEditor::updateConnectionUI()
+void KeyGlowAudioProcessorEditor::updateConnectionUI()
 {
     // Get protocol from ComboBox selection (more reliable than reading parameter)
     int selectedId = protocolComboBox.getSelectedId();
@@ -854,7 +854,7 @@ void Midi2ArtAudioProcessorEditor::updateConnectionUI()
         baudRateComboBox.setVisible(true);
         
         // Set current baud rate from parameter
-        int currentBaudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_BAUD_RATE));
+        int currentBaudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_BAUD_RATE));
         
         // Select appropriate baud rate in combobox
         if (currentBaudRate == 57600) baudRateComboBox.setSelectedId(1);
@@ -897,7 +897,7 @@ void Midi2ArtAudioProcessorEditor::updateConnectionUI()
     updateLEDCountWarning();
 }
 
-void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
+void KeyGlowAudioProcessorEditor::refreshSerialPorts()
 {
     // Get available serial ports from AdalightSender
     juce::StringArray ports = AdalightSender::getAvailableSerialPorts();
@@ -927,7 +927,7 @@ void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
             
             serialPortComboBox.setSelectedId(portIndex + 1, juce::dontSendNotification);
             audioProcessor.getValueTreeState().state.setProperty(
-                Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, desiredPort, nullptr);
+                KeyGlowAudioProcessor::PARAM_SERIAL_PORT, desiredPort, nullptr);
         }
         else
         {
@@ -942,7 +942,7 @@ void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
             serialPortComboBox.setSelectedId(1, juce::dontSendNotification);
             serialPortComboBox.setEnabled(true);
             audioProcessor.getValueTreeState().state.setProperty(
-                Midi2ArtAudioProcessor::PARAM_SERIAL_PORT, "", nullptr);
+                KeyGlowAudioProcessor::PARAM_SERIAL_PORT, "", nullptr);
         }
     }
     else if (ports.isEmpty())
@@ -964,7 +964,7 @@ void Midi2ArtAudioProcessorEditor::refreshSerialPorts()
     updateStatusLabel();
 }
 
-int Midi2ArtAudioProcessorEditor::calculateMaxLEDCount(int baudRate, int fps)
+int KeyGlowAudioProcessorEditor::calculateMaxLEDCount(int baudRate, int fps)
 {
     // Formula: max LEDs = ((baudRate / 10 / fps) - 6 header bytes) / 3 bytes per LED
     // 8N1 encoding: 10 bits per byte (1 start + 8 data + 1 stop)
@@ -976,7 +976,7 @@ int Midi2ArtAudioProcessorEditor::calculateMaxLEDCount(int baudRate, int fps)
     return juce::jmax(1, maxLEDs); // At least 1 LED
 }
 
-void Midi2ArtAudioProcessorEditor::updateLEDCountWarning()
+void KeyGlowAudioProcessorEditor::updateLEDCountWarning()
 {
     // Get protocol
     int selectedId = protocolComboBox.getSelectedId();
@@ -991,9 +991,9 @@ void Midi2ArtAudioProcessorEditor::updateLEDCountWarning()
     }
     
     // Get current LED count, offset, and baud rate
-    int ledCount = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_COUNT));
-    int ledOffset = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_LED_OFFSET));
-    int baudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(Midi2ArtAudioProcessor::PARAM_BAUD_RATE));
+    int ledCount = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_LED_COUNT));
+    int ledOffset = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_LED_OFFSET));
+    int baudRate = static_cast<int>(*audioProcessor.getValueTreeState().getRawParameterValue(KeyGlowAudioProcessor::PARAM_BAUD_RATE));
     
     // Calculate max safe LED count
     int totalLEDs = ledOffset + ledCount;

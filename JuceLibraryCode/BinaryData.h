@@ -9,7 +9,7 @@
 namespace BinaryData
 {
     extern const char*   Background_png;
-    const int            Background_pngSize = 1822041;
+    const int            Background_pngSize = 645145;
 
     // Number of elements in the namedResourceList and originalFileNames arrays.
     const int namedResourceListSize = 1;

@@ -186,6 +186,12 @@ private:
     static constexpr int MAX_PACKET_SIZE = 6 + 512 * 3;
     uint8_t packetBuffer[MAX_PACKET_SIZE] = {0};
     
+    // Debug counters for write statistics
+    int successfulWrites = 0;
+    int droppedFrames = 0;      // EAGAIN/EWOULDBLOCK
+    int partialWrites = 0;      // Wrote less than requested
+    int writeErrors = 0;        // Other errors
+    
     #if !JUCE_WINDOWS
     // Convert integer baud rate to termios speed_t constant
     speed_t getBaudRateConstant(int baudRate)
@@ -277,7 +283,7 @@ private:
             
         #else
             // POSIX implementation (macOS/Linux)
-            serialHandle = open(currentSerialPort.toRawUTF8(), O_RDWR | O_NOCTTY);
+            serialHandle = open(currentSerialPort.toRawUTF8(), O_RDWR | O_NOCTTY | O_NONBLOCK);
             
             if (serialHandle < 0)
             {
@@ -328,6 +334,12 @@ private:
             // Flush any existing data
             tcflush(serialHandle, TCIOFLUSH);
             
+            // Reset debug counters
+            successfulWrites = 0;
+            droppedFrames = 0;
+            partialWrites = 0;
+            writeErrors = 0;
+            
             DBG("AdalightSender::openSerialPort - SUCCESS! Port configured and ready");
         #endif
     }
@@ -362,36 +374,72 @@ private:
             if (!WriteFile(serialHandle, data, static_cast<DWORD>(length), &bytesWritten, NULL))
             {
                 DBG("AdalightSender::writeSerial - WRITE FAILED (Windows), closing port");
+                writeErrors++;
                 // Write failed - close the port so reconnect polling can reopen it
                 closeSerialPort();
             }
-        #else
-            // Handle partial writes by looping until all data is sent
-            size_t totalWritten = 0;
-            while (totalWritten < length)
+            else
             {
-                ssize_t result = write(serialHandle, data + totalWritten, length - totalWritten);
-                
-                if (result < 0)
+                if (bytesWritten == static_cast<DWORD>(length))
+                    successfulWrites++;
+                else
+                    partialWrites++;
+            }
+        #else
+            // Non-blocking write: attempt to send the entire packet at once.
+            // If the kernel buffer can't accept the full packet (EAGAIN), we drop
+            // this frame rather than sending a partial packet. A partial Adalight
+            // packet causes the receiver to desync and display random colors.
+            // Dropping a frame at 30Hz is visually imperceptible.
+            ssize_t result = write(serialHandle, data, length);
+            
+            if (result < 0)
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
-                    DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
-                    // Write failed (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
-                    closeSerialPort();
+                    // Kernel buffer full - drop this frame (don't block the audio thread)
+                    droppedFrames++;
+                    
+                    // Log stats every 300 frames (~10 seconds at 30Hz)
+                    if ((successfulWrites + droppedFrames + partialWrites) % 300 == 0)
+                    {
+                        DBG("AdalightSender stats - Success: " + juce::String(successfulWrites) + 
+                            ", Dropped: " + juce::String(droppedFrames) + 
+                            ", Partial: " + juce::String(partialWrites) + 
+                            ", Errors: " + juce::String(writeErrors));
+                    }
                     return;
                 }
-                else if (result == 0)
-                {
-                    // No data written (should not happen with blocking writes, but handle it)
-                    DBG("AdalightSender::writeSerial - ZERO BYTES WRITTEN, breaking");
-                    break;
-                }
                 
-                totalWritten += result;
+                DBG("AdalightSender::writeSerial - WRITE FAILED (POSIX), errno: " + juce::String(errno) + ", closing port");
+                writeErrors++;
+                // Actual error (EIO, ENXIO, etc.) - close the port so reconnect polling can reopen it
+                closeSerialPort();
+                return;
+            }
+            
+            if (static_cast<size_t>(result) < length)
+            {
+                // Partial write: kernel accepted some bytes but not all.
+                // This is bad for Adalight - the receiver will see an incomplete packet
+                // followed by the header of the next packet, causing desync.
+                // Flush the output buffer to discard the partial packet, so the next
+                // full packet starts cleanly from the receiver's perspective.
+                partialWrites++;
+                DBG("AdalightSender::writeSerial - PARTIAL WRITE: sent " + juce::String((int)result) + "/" + juce::String((int)length) + " bytes");
+                tcflush(serialHandle, TCOFLUSH);
+            }
+            else
+            {
+                successfulWrites++;
                 
-                if (totalWritten < length)
+                // Log stats every 300 frames (~10 seconds at 30Hz)
+                if ((successfulWrites + droppedFrames + partialWrites) % 300 == 0)
                 {
-                    DBG("AdalightSender::writeSerial - PARTIAL WRITE: " + juce::String((int)result) + " bytes, " + 
-                        juce::String((int)(length - totalWritten)) + " remaining, retrying...");
+                    DBG("AdalightSender stats - Success: " + juce::String(successfulWrites) + 
+                        ", Dropped: " + juce::String(droppedFrames) + 
+                        ", Partial: " + juce::String(partialWrites) + 
+                        ", Errors: " + juce::String(writeErrors));
                 }
             }
         #endif

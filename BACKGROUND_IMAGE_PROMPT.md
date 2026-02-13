@@ -1,6 +1,6 @@
-# ChatGPT Prompt for MIDI2Art Background Image
+# ChatGPT Prompt for KeyGlow Background Image
 
-Use this prompt with ChatGPT (or similar AI image generator) to create a background image for the MIDI2Art plugin:
+Use this prompt with ChatGPT (or similar AI image generator) to create a background image for the KeyGlow plugin:
 
 ---
 

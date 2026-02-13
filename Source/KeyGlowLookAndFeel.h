@@ -1,8 +1,8 @@
 /*
  ==============================================================================
 
-   Midi2ArtLookAndFeel.h
-   Custom LookAndFeel for MIDI2Art plugin (knobs & basic controls)
+   KeyGlowLookAndFeel.h
+   Custom LookAndFeel for KeyGlow plugin (knobs & basic controls)
 
  ==============================================================================
 */
@@ -12,10 +12,10 @@
 #include <JuceHeader.h>
 
 // Small, header-only LookAndFeel to avoid touching project files.
-class Midi2ArtLookAndFeel : public juce::LookAndFeel_V4
+class KeyGlowLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    Midi2ArtLookAndFeel()
+    KeyGlowLookAndFeel()
     {
         // Global base colours (can still be overridden per component)
         const auto accentBlue  = juce::Colour (0xff1fa0ff);   // dunkleres Cyan
@@ -36,7 +36,7 @@ public:
         setColour (juce::ComboBox::arrowColourId, accentBlue);
     }
 
-    ~Midi2ArtLookAndFeel() override = default;
+    ~KeyGlowLookAndFeel() override = default;
 
 private:
     // Helper: Cut-corner Path (45° "abgebissen") - wird von Buttons und TextEditor verwendet

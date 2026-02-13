@@ -1,13 +1,13 @@
-# MIDI2Art Plugin Testing Guide
+# KeyGlow Plugin Testing Guide
 
 ## Debugging
 
 The plugin now includes comprehensive logging. Check these locations:
 
 1. **Console Output**: When running in a DAW, check the Console app (Applications > Utilities > Console.app)
-   - Filter for "MIDI2Art" or "MIDI2Art_Debug"
+   - Filter for "KeyGlow" or "KeyGlow_Debug"
 
-2. **Log File**: `~/Desktop/MIDI2Art_Debug.log`
+2. **Log File**: `~/Desktop/KeyGlow_Debug.log`
    - Contains all debug messages
    - Created automatically when plugin loads
 
@@ -24,7 +24,7 @@ The plugin now includes comprehensive logging. Check these locations:
 1. **Rebuild the plugin** (the .jucer file was updated to make it an instrument):
    ```bash
    cd Builds/MacOSX
-   xcodebuild -project MIDI2Art.xcodeproj -scheme "MIDI2Art - AU" -configuration Release clean build
+    xcodebuild -project KeyGlow.xcodeproj -scheme "KeyGlow - AU" -configuration Release clean build
    ```
 
 2. **Restart your DAW** completely (quit and reopen)
